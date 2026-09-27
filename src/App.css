@@ -1,0 +1,242 @@
+/* ================================
+   CONFIGURATION GÉNÉRALE
+================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #222;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 25px;
+}
+
+/* ================================
+   TITRES
+================================ */
+
+h1 {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+h3 {
+    margin-top: 25px;
+}
+
+/* ================================
+   SECTIONS
+================================ */
+
+section {
+    background: white;
+    margin-bottom: 25px;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ================================
+   FORMULAIRES
+================================ */
+
+form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: inherit;
+}
+
+form input,
+form select {
+    flex: 1 1 200px;
+}
+
+textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* ================================
+   LABELS
+================================ */
+
+label {
+    display: block;
+    margin-top: 15px;
+    margin-bottom: 7px;
+    font-weight: bold;
+}
+
+/* ================================
+   BOUTONS
+================================ */
+
+button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ================================
+   TABLEAUX
+================================ */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th,
+td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    font-weight: bold;
+}
+
+/* ================================
+   TEXTES
+================================ */
+
+p {
+    line-height: 1.5;
+}
+
+/* ================================
+   TABLEAUX SUR PETITS ÉCRANS
+================================ */
+
+@media (max-width: 768px) {
+
+    .app-container {
+        padding: 12px;
+    }
+
+    section {
+        padding: 16px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+
+    h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+
+    h2 {
+        font-size: 20px;
+    }
+
+    h3 {
+        font-size: 18px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+        font-size: 16px;
+    }
+
+    form {
+        display: block;
+    }
+
+    form input,
+    form select,
+    form textarea,
+    form button {
+        width: 100%;
+        margin-bottom: 12px;
+    }
+
+    /*
+       Permet de faire défiler
+       les grands tableaux horizontalement.
+    */
+
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    th,
+    td {
+        padding: 10px;
+        font-size: 14px;
+    }
+}
+
+/* ================================
+   TRÈS PETITS TÉLÉPHONES
+================================ */
+
+@media (max-width: 480px) {
+
+    .app-container {
+        padding: 8px;
+    }
+
+    section {
+        padding: 12px;
+    }
+
+    h1 {
+        font-size: 21px;
+    }
+
+    h2 {
+        font-size: 18px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+        width: 100%;
+    }
+
+    button {
+        padding: 13px;
+    }
+}
