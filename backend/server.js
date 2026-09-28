@@ -42,10 +42,12 @@ if (!process.env.ESMS_SENDER_ID) {
 
 const app = express();
 
-// Ne pas révéler la technologie utilisée
 app.disable("x-powered-by");
 
-// Protection des en-têtes HTTP
+// ========================================
+// HELMET
+// ========================================
+
 app.use(
     helmet({
         crossOriginResourcePolicy: {
@@ -73,15 +75,11 @@ app.use(
     cors({
         origin: (origin, callback) => {
 
-            // Autoriser les requêtes sans origin
-            // (ex: certains outils/API)
             if (!origin) {
                 return callback(null, true);
             }
 
-            if (
-                originesAutorisees.includes(origin)
-            ) {
+            if (originesAutorisees.includes(origin)) {
                 return callback(null, true);
             }
 
@@ -89,12 +87,14 @@ app.use(
                 new Error("Origine non autorisée.")
             );
         },
+
         methods: [
             "GET",
             "POST",
             "DELETE",
             "OPTIONS"
         ],
+
         allowedHeaders: [
             "Content-Type",
             "Authorization"
@@ -121,6 +121,7 @@ const limiteGenerale = rateLimit({
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message:
             "Trop de requêtes. Veuillez réessayer plus tard."
@@ -138,6 +139,7 @@ const limiteLogin = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message:
             "Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes."
@@ -153,6 +155,7 @@ const limiteSMS = rateLimit({
     max: 50,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message:
             "Trop d'envois SMS. Veuillez patienter avant de recommencer."
@@ -177,11 +180,13 @@ const verifierValidation = (
         return res.status(400).json({
             message:
                 "Données invalides.",
+
             erreurs:
                 erreurs.array().map(
                     (erreur) => ({
                         champ:
                             erreur.path,
+
                         message:
                             erreur.msg
                     })
@@ -230,6 +235,18 @@ app.get("/", (req, res) => {
     res.json({
         message:
             "Serveur SMS Clients opérationnel"
+    });
+});
+
+// ========================================
+// ROUTE DE SANTÉ
+// ========================================
+
+app.get("/health", (req, res) => {
+
+    res.status(200).json({
+        status: "ok",
+        service: "SMS Clients API"
     });
 });
 
@@ -312,12 +329,16 @@ app.post(
                     {
                         id:
                             utilisateur.id,
+
                         email:
                             utilisateur.email,
+
                         nom:
                             utilisateur.nom
                     },
+
                     process.env.JWT_SECRET,
+
                     {
                         expiresIn: "8h"
                     }
@@ -332,8 +353,10 @@ app.post(
                 utilisateur: {
                     id:
                         utilisateur.id,
+
                     nom:
                         utilisateur.nom,
+
                     email:
                         utilisateur.email
                 }
@@ -891,6 +914,7 @@ app.post(
             res.json({
                 message:
                     "SMS envoyé avec succès.",
+
                 statut
             });
 
@@ -1348,15 +1372,19 @@ app.use(
 );
 
 // ========================================
-// DÉMARRAGE
+// DÉMARRAGE DU SERVEUR
 // ========================================
 
+const PORT =
+    process.env.PORT || 5000;
+
 app.listen(
-    5000,
+    PORT,
+    "0.0.0.0",
     () => {
 
         console.log(
-            "Serveur démarré sur http://localhost:5000"
+            `Serveur démarré sur le port ${PORT}`
         );
 
         console.log(
