@@ -10,11 +10,16 @@ function App() {
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const seConnecter = async (e) => {
+    async function seConnecter(e) {
         e.preventDefault();
 
-        setMessage("");
+        if (!email.trim() || !password) {
+            setMessage("Veuillez remplir tous les champs.");
+            return;
+        }
+
         setLoading(true);
+        setMessage("");
 
         try {
             const response = await fetch(API_URL + "/login", {
@@ -31,37 +36,50 @@ function App() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(
-                    data.message || "Erreur de connexion."
+                setMessage(
+                    data.message || "Identifiants incorrects."
+                );
+                setLoading(false);
+                return;
+            }
+
+            if (!data.token) {
+                setMessage("Le serveur n'a pas envoyé de token.");
+                setLoading(false);
+                return;
+            }
+
+            localStorage.setItem("sms_token", data.token);
+
+            if (data.utilisateur) {
+                localStorage.setItem(
+                    "sms_utilisateur",
+                    JSON.stringify(data.utilisateur)
                 );
             }
 
-            localStorage.setItem(
-                "sms_token",
-                data.token
-            );
-
-            localStorage.setItem(
-                "sms_utilisateur",
-                JSON.stringify(data.utilisateur)
-            );
-
             setMessage("Connexion réussie.");
 
-            window.location.reload();
+            setTimeout(function () {
+                window.location.reload();
+            }, 500);
+
         } catch (error) {
+            console.error(error);
+
             setMessage(
-                error.message || "Impossible de se connecter."
+                "Impossible de contacter le serveur. Vérifiez que le backend fonctionne."
             );
-        } finally {
-            setLoading(false);
         }
-    };
+
+        setLoading(false);
+    }
 
     return (
         <div className="app">
             <div className="login-container">
                 <div className="login-box">
+
                     <h1>SMS Clients</h1>
 
                     <h2>Connexion administrateur</h2>
@@ -73,15 +91,16 @@ function App() {
                     )}
 
                     <form onSubmit={seConnecter}>
+
                         <div className="form-group">
                             <label>Email</label>
 
                             <input
                                 type="email"
                                 value={email}
-                                onChange={(e) =>
-                                    setEmail(e.target.value)
-                                }
+                                onChange={function (e) {
+                                    setEmail(e.target.value);
+                                }}
                                 placeholder="Votre adresse email"
                                 required
                             />
@@ -93,9 +112,9 @@ function App() {
                             <input
                                 type="password"
                                 value={password}
-                                onChange={(e) =>
-                                    setPassword(e.target.value)
-                                }
+                                onChange={function (e) {
+                                    setPassword(e.target.value);
+                                }}
                                 placeholder="Votre mot de passe"
                                 required
                             />
@@ -109,7 +128,9 @@ function App() {
                                 ? "Connexion..."
                                 : "Se connecter"}
                         </button>
+
                     </form>
+
                 </div>
             </div>
         </div>
