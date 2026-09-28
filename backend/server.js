@@ -42,6 +42,9 @@ if (!ESMS_SENDER_ID) {
 
 const app = express();
 
+// IMPORTANT POUR RENDER
+app.set("trust proxy", 1);
+
 // ========================================
 // SÉCURITÉ
 // ========================================
@@ -73,7 +76,6 @@ if (process.env.FRONTEND_URL) {
 app.use(
     cors({
         origin: (origin, callback) => {
-
             if (!origin) {
                 return callback(null, true);
             }
@@ -127,6 +129,7 @@ const limiteGenerale = rateLimit({
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message: "Trop de requêtes. Veuillez réessayer plus tard."
     }
@@ -143,6 +146,7 @@ const limiteLogin = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message: "Trop de tentatives de connexion."
     }
@@ -157,6 +161,7 @@ const limiteSMS = rateLimit({
     max: 50,
     standardHeaders: true,
     legacyHeaders: false,
+
     message: {
         message: "Trop d'envois SMS. Veuillez patienter."
     }
@@ -172,6 +177,7 @@ const pool = new Pool({
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
+
     ssl:
         process.env.NODE_ENV === "production"
             ? { rejectUnauthorized: false }
@@ -205,7 +211,6 @@ pool.query("SELECT NOW()")
 // ========================================
 
 function verifierValidation(req, res, next) {
-
     const erreurs = validationResult(req);
 
     if (!erreurs.isEmpty()) {
@@ -223,9 +228,7 @@ function verifierValidation(req, res, next) {
 // ========================================
 
 function authentifier(req, res, next) {
-
-    const authorization =
-        req.headers.authorization;
+    const authorization = req.headers.authorization;
 
     if (
         !authorization ||
@@ -236,20 +239,18 @@ function authentifier(req, res, next) {
         });
     }
 
-    const token =
-        authorization.substring(7);
+    const token = authorization.substring(7);
 
     try {
-
-        const utilisateur =
-            jwt.verify(token, JWT_SECRET);
+        const utilisateur = jwt.verify(
+            token,
+            JWT_SECRET
+        );
 
         req.utilisateur = utilisateur;
 
         next();
-
     } catch (error) {
-
         return res.status(401).json({
             message: "Session expirée ou token invalide."
         });
@@ -261,7 +262,6 @@ function authentifier(req, res, next) {
 // ========================================
 
 app.get("/", (req, res) => {
-
     res.json({
         message: "Serveur SMS Clients opérationnel"
     });
@@ -272,18 +272,14 @@ app.get("/", (req, res) => {
 // ========================================
 
 app.get("/health", async (req, res) => {
-
     try {
-
         await pool.query("SELECT 1");
 
         res.json({
             status: "ok",
             service: "SMS Clients API"
         });
-
     } catch (error) {
-
         console.error(
             "Health check PostgreSQL :",
             error.message
@@ -302,6 +298,7 @@ app.get("/health", async (req, res) => {
 
 app.post(
     "/login",
+
     limiteLogin,
 
     [
@@ -320,9 +317,7 @@ app.post(
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 email,
                 password
@@ -339,15 +334,13 @@ app.post(
             );
 
             if (resultat.rows.length === 0) {
-
                 return res.status(401).json({
                     message:
                         "Email ou mot de passe incorrect."
                 });
             }
 
-            const utilisateur =
-                resultat.rows[0];
+            const utilisateur = resultat.rows[0];
 
             const motDePasseCorrect =
                 await bcrypt.compare(
@@ -356,7 +349,6 @@ app.post(
                 );
 
             if (!motDePasseCorrect) {
-
                 return res.status(401).json({
                     message:
                         "Email ou mot de passe incorrect."
@@ -369,7 +361,9 @@ app.post(
                     email: utilisateur.email,
                     nom: utilisateur.nom
                 },
+
                 JWT_SECRET,
+
                 {
                     expiresIn: "8h"
                 }
@@ -377,7 +371,9 @@ app.post(
 
             res.json({
                 message: "Connexion réussie.",
+
                 token,
+
                 utilisateur: {
                     id: utilisateur.id,
                     nom: utilisateur.nom,
@@ -386,7 +382,6 @@ app.post(
             });
 
         } catch (error) {
-
             console.error(
                 "Erreur login :",
                 error.message
@@ -407,10 +402,9 @@ app.post(
 app.get(
     "/dashboard",
     authentifier,
+
     async (req, res) => {
-
         try {
-
             const clients =
                 await pool.query(
                     "SELECT COUNT(*) AS total FROM clients"
@@ -450,7 +444,6 @@ app.get(
             });
 
         } catch (error) {
-
             console.error(
                 "Erreur dashboard :",
                 error.message
@@ -471,10 +464,9 @@ app.get(
 app.get(
     "/clients",
     authentifier,
+
     async (req, res) => {
-
         try {
-
             const resultat =
                 await pool.query(
                     `
@@ -496,7 +488,6 @@ app.get(
             res.json(resultat.rows);
 
         } catch (error) {
-
             console.error(
                 "Erreur clients :",
                 error.message
@@ -521,7 +512,10 @@ app.post(
     [
         body("nom")
             .trim()
-            .isLength({ min: 1, max: 100 })
+            .isLength({
+                min: 1,
+                max: 100
+            })
             .withMessage("Nom requis."),
 
         body("prenom")
@@ -531,7 +525,10 @@ app.post(
 
         body("telephone")
             .trim()
-            .isLength({ min: 6, max: 30 })
+            .isLength({
+                min: 6,
+                max: 30
+            })
             .withMessage("Téléphone invalide."),
 
         body("email")
@@ -549,9 +546,7 @@ app.post(
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 nom,
                 prenom,
@@ -588,7 +583,6 @@ app.post(
             );
 
         } catch (error) {
-
             console.error(
                 "Erreur ajout client :",
                 error.message
@@ -619,9 +613,7 @@ app.delete(
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const resultat =
                 await pool.query(
                     `
@@ -633,7 +625,6 @@ app.delete(
                 );
 
             if (resultat.rows.length === 0) {
-
                 return res.status(404).json({
                     message:
                         "Client introuvable."
@@ -646,7 +637,6 @@ app.delete(
             });
 
         } catch (error) {
-
             console.error(
                 "Erreur suppression client :",
                 error.message
@@ -667,10 +657,9 @@ app.delete(
 app.get(
     "/groupes",
     authentifier,
+
     async (req, res) => {
-
         try {
-
             const resultat =
                 await pool.query(
                     `
@@ -686,7 +675,6 @@ app.get(
             res.json(resultat.rows);
 
         } catch (error) {
-
             console.error(
                 "Erreur groupes :",
                 error.message
@@ -711,8 +699,13 @@ app.post(
     [
         body("nom")
             .trim()
-            .isLength({ min: 1, max: 150 })
-            .withMessage("Nom du groupe requis."),
+            .isLength({
+                min: 1,
+                max: 150
+            })
+            .withMessage(
+                "Nom du groupe requis."
+            ),
 
         body("description")
             .optional({ nullable: true })
@@ -723,9 +716,7 @@ app.post(
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 nom,
                 description
@@ -753,7 +744,6 @@ app.post(
             );
 
         } catch (error) {
-
             console.error(
                 "Erreur ajout groupe :",
                 error.message
@@ -774,10 +764,9 @@ app.post(
 app.get(
     "/modeles-sms",
     authentifier,
+
     async (req, res) => {
-
         try {
-
             const resultat =
                 await pool.query(
                     `
@@ -793,7 +782,6 @@ app.get(
             res.json(resultat.rows);
 
         } catch (error) {
-
             console.error(
                 "Erreur modèles SMS :",
                 error.message
@@ -818,21 +806,29 @@ app.post(
     [
         body("nom")
             .trim()
-            .isLength({ min: 1, max: 150 })
-            .withMessage("Nom du modèle requis."),
+            .isLength({
+                min: 1,
+                max: 150
+            })
+            .withMessage(
+                "Nom du modèle requis."
+            ),
 
         body("message")
             .trim()
-            .isLength({ min: 1, max: 1000 })
-            .withMessage("Message requis.")
+            .isLength({
+                min: 1,
+                max: 1000
+            })
+            .withMessage(
+                "Message requis."
+            )
     ],
 
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 nom,
                 message
@@ -860,7 +856,6 @@ app.post(
             );
 
         } catch (error) {
-
             console.error(
                 "Erreur ajout modèle :",
                 error.message
@@ -886,21 +881,29 @@ app.post(
     [
         body("telephone")
             .trim()
-            .isLength({ min: 6, max: 30 })
-            .withMessage("Numéro de téléphone invalide."),
+            .isLength({
+                min: 6,
+                max: 30
+            })
+            .withMessage(
+                "Numéro de téléphone invalide."
+            ),
 
         body("message")
             .trim()
-            .isLength({ min: 1, max: 1000 })
-            .withMessage("Message SMS invalide.")
+            .isLength({
+                min: 1,
+                max: 1000
+            })
+            .withMessage(
+                "Message SMS invalide."
+            )
     ],
 
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 telephone,
                 message
@@ -909,11 +912,13 @@ app.post(
             const resultat =
                 await axios.post(
                     "https://sms.esmsafrica.io/api/messages/send",
+
                     {
                         to: telephone,
                         text: message,
                         sender_id: ESMS_SENDER_ID
                     },
+
                     {
                         headers: {
                             Authorization:
@@ -947,12 +952,12 @@ app.post(
             res.json({
                 message:
                     "SMS envoyé avec succès.",
+
                 resultat:
                     resultat.data
             });
 
         } catch (error) {
-
             console.error(
                 "Erreur envoi SMS :",
                 error.response?.data ||
@@ -960,7 +965,6 @@ app.post(
             );
 
             try {
-
                 const {
                     telephone,
                     message
@@ -984,7 +988,6 @@ app.post(
                 );
 
             } catch (historiqueError) {
-
                 console.error(
                     "Erreur historique :",
                     historiqueError.message
@@ -1011,20 +1014,25 @@ app.post(
     [
         body("groupeId")
             .isInt()
-            .withMessage("Groupe invalide."),
+            .withMessage(
+                "Groupe invalide."
+            ),
 
         body("message")
             .trim()
-            .isLength({ min: 1, max: 1000 })
-            .withMessage("Message SMS invalide.")
+            .isLength({
+                min: 1,
+                max: 1000
+            })
+            .withMessage(
+                "Message SMS invalide."
+            )
     ],
 
     verifierValidation,
 
     async (req, res) => {
-
         try {
-
             const {
                 groupeId,
                 message
@@ -1042,7 +1050,6 @@ app.post(
                 );
 
             if (clients.rows.length === 0) {
-
                 return res.status(404).json({
                     message:
                         "Aucun client trouvé dans ce groupe."
@@ -1055,17 +1062,17 @@ app.post(
             for (
                 const client of clients.rows
             ) {
-
                 try {
-
                     await axios.post(
                         "https://sms.esmsafrica.io/api/messages/send",
+
                         {
                             to: client.telephone,
                             text: message,
                             sender_id:
                                 ESMS_SENDER_ID
                         },
+
                         {
                             headers: {
                                 Authorization:
@@ -1099,7 +1106,6 @@ app.post(
                     envoyes++;
 
                 } catch (error) {
-
                     echecs++;
 
                     await pool.query(
@@ -1124,14 +1130,16 @@ app.post(
             res.json({
                 message:
                     "Campagne SMS terminée.",
+
                 total:
                     clients.rows.length,
+
                 envoyes,
+
                 echecs
             });
 
         } catch (error) {
-
             console.error(
                 "Erreur SMS groupe :",
                 error.message
@@ -1152,10 +1160,9 @@ app.post(
 app.get(
     "/historique",
     authentifier,
+
     async (req, res) => {
-
         try {
-
             const resultat =
                 await pool.query(
                     `
@@ -1173,7 +1180,6 @@ app.get(
             res.json(resultat.rows);
 
         } catch (error) {
-
             console.error(
                 "Erreur historique :",
                 error.message
@@ -1193,13 +1199,11 @@ app.get(
 
 app.use(
     (error, req, res, next) => {
-
         if (
             error &&
             error.message ===
-            "Origine non autorisée."
+                "Origine non autorisée."
         ) {
-
             return res.status(403).json({
                 message:
                     "Origine non autorisée."
@@ -1216,7 +1220,6 @@ app.use(
 
 app.use(
     (req, res) => {
-
         res.status(404).json({
             message:
                 "Route introuvable."
@@ -1230,7 +1233,6 @@ app.use(
 
 app.use(
     (error, req, res, next) => {
-
         console.error(
             "Erreur serveur :",
             error.message
@@ -1251,7 +1253,6 @@ app.listen(
     PORT,
     "0.0.0.0",
     () => {
-
         console.log(
             `Serveur SMS Clients démarré sur le port ${PORT}`
         );
