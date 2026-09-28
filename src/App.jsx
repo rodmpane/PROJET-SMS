@@ -129,7 +129,6 @@ function App() {
             setUtilisateur(data.utilisateur);
             setMessage("Connexion réussie.");
             setPassword("");
-
         } catch (error) {
             setMessage(
                 error.message ||
@@ -150,42 +149,83 @@ function App() {
 
     async function chargerDonnees() {
         try {
+            // ==============================
+            // CLIENTS
+            // ==============================
             const clientsData =
                 await api("/clients");
-
-            const groupesData =
-                await api("/groupes");
-
-            const historiqueData =
-                await api("/historique");
-
-            const modelesData =
-                await api("/modeles-sms");
 
             setClients(
                 Array.isArray(clientsData)
                     ? clientsData
+                    : Array.isArray(clientsData.clients)
+                    ? clientsData.clients
                     : []
             );
 
-            setGroupes(
-                Array.isArray(groupesData)
-                    ? groupesData
-                    : []
+            // ==============================
+            // GROUPES
+            // ==============================
+            const groupesData =
+                await api("/groupes");
+
+            console.log(
+                "Réponse complète /groupes :",
+                groupesData
             );
+
+            let groupesListe = [];
+
+            if (Array.isArray(groupesData)) {
+                groupesListe = groupesData;
+            } else if (
+                Array.isArray(groupesData.groupes)
+            ) {
+                groupesListe = groupesData.groupes;
+            } else if (
+                Array.isArray(groupesData.rows)
+            ) {
+                groupesListe = groupesData.rows;
+            }
+
+            console.log(
+                "Groupes reçus par React :",
+                groupesListe
+            );
+
+            setGroupes(groupesListe);
+
+            // ==============================
+            // HISTORIQUE
+            // ==============================
+            const historiqueData =
+                await api("/historique");
 
             setHistorique(
                 Array.isArray(historiqueData)
                     ? historiqueData
+                    : Array.isArray(
+                          historiqueData.historique
+                      )
+                    ? historiqueData.historique
                     : []
             );
+
+            // ==============================
+            // MODELES
+            // ==============================
+            const modelesData =
+                await api("/modeles-sms");
 
             setModeles(
                 Array.isArray(modelesData)
                     ? modelesData
+                    : Array.isArray(
+                          modelesData.modeles
+                      )
+                    ? modelesData.modeles
                     : []
             );
-
         } catch (error) {
             console.error(
                 "Erreur chargement des données :",
@@ -230,7 +270,6 @@ function App() {
             );
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -256,7 +295,6 @@ function App() {
             setMessage("Client supprimé.");
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -282,7 +320,6 @@ function App() {
             );
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -312,7 +349,6 @@ function App() {
             setMessageSms("");
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -349,7 +385,6 @@ function App() {
             setGroupeSms("");
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -378,7 +413,6 @@ function App() {
             );
 
             await chargerDonnees();
-
         } catch (error) {
             setMessage(error.message);
         }
@@ -388,6 +422,10 @@ function App() {
         setMessageSms(message);
         setMessageGroupe(message);
     }
+
+    // ==============================
+    // CONNEXION
+    // ==============================
 
     if (!token) {
         return (
@@ -411,6 +449,7 @@ function App() {
                             onSubmit={seConnecter}
                         >
                             <div className="form-group">
+
                                 <label>
                                     Email
                                 </label>
@@ -426,9 +465,11 @@ function App() {
                                     placeholder="Votre adresse email"
                                     required
                                 />
+
                             </div>
 
                             <div className="form-group">
+
                                 <label>
                                     Mot de passe
                                 </label>
@@ -444,6 +485,7 @@ function App() {
                                     placeholder="Votre mot de passe"
                                     required
                                 />
+
                             </div>
 
                             <button
@@ -454,6 +496,7 @@ function App() {
                                     ? "Connexion..."
                                     : "Se connecter"}
                             </button>
+
                         </form>
 
                     </div>
@@ -461,6 +504,10 @@ function App() {
             </div>
         );
     }
+
+    // ==============================
+    // TABLEAU DE BORD
+    // ==============================
 
     return (
         <div className="app">
@@ -478,6 +525,7 @@ function App() {
                 </div>
 
                 <div>
+
                     <span>
                         {utilisateur?.nom ||
                             "Administrateur"}
@@ -491,6 +539,7 @@ function App() {
                     >
                         Déconnexion
                     </button>
+
                 </div>
 
             </header>
@@ -502,6 +551,10 @@ function App() {
                         {message}
                     </div>
                 )}
+
+                {/* ==============================
+                    CLIENTS
+                ============================== */}
 
                 <section>
 
@@ -610,6 +663,7 @@ function App() {
 
                                 <thead>
                                     <tr>
+
                                         <th>
                                             Nom
                                         </th>
@@ -625,6 +679,7 @@ function App() {
                                         <th>
                                             Action
                                         </th>
+
                                     </tr>
                                 </thead>
 
@@ -659,6 +714,7 @@ function App() {
                                                 </td>
 
                                                 <td>
+
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -669,6 +725,7 @@ function App() {
                                                     >
                                                         Supprimer
                                                     </button>
+
                                                 </td>
 
                                             </tr>
@@ -683,6 +740,10 @@ function App() {
                     </div>
 
                 </section>
+
+                {/* ==============================
+                    GROUPES
+                ============================== */}
 
                 <section>
 
@@ -742,6 +803,7 @@ function App() {
                                                 groupe.id
                                             }
                                         >
+
                                             <strong>
                                                 {
                                                     groupe.nom
@@ -753,6 +815,7 @@ function App() {
                                             {
                                                 groupe.description
                                             }
+
                                         </li>
                                     )
                                 )}
@@ -763,6 +826,10 @@ function App() {
                     </div>
 
                 </section>
+
+                {/* ==============================
+                    SMS INDIVIDUEL
+                ============================== */}
 
                 <section>
 
@@ -806,6 +873,10 @@ function App() {
                     </form>
 
                 </section>
+
+                {/* ==============================
+                    SMS GROUPE
+                ============================== */}
 
                 <section>
 
@@ -873,6 +944,10 @@ function App() {
                     </form>
 
                 </section>
+
+                {/* ==============================
+                    MODELES SMS
+                ============================== */}
 
                 <section>
 
@@ -970,6 +1045,10 @@ function App() {
 
                 </section>
 
+                {/* ==============================
+                    HISTORIQUE
+                ============================== */}
+
                 <section>
 
                     <h2>
@@ -988,6 +1067,7 @@ function App() {
 
                                 <thead>
                                     <tr>
+
                                         <th>
                                             Téléphone
                                         </th>
@@ -1003,6 +1083,7 @@ function App() {
                                         <th>
                                             Date
                                         </th>
+
                                     </tr>
                                 </thead>
 
