@@ -12,47 +12,45 @@ import bcrypt from "bcrypt";
 dotenv.config();
 
 // ========================================
-// VARIABLES SECRÈTES
+// VARIABLES D'ENVIRONNEMENT
 // ========================================
 
-if (!process.env.JWT_SECRET) {
-    console.error(
-        "ERREUR : JWT_SECRET n'est pas configuré dans le fichier .env"
-    );
+const PORT = process.env.PORT || 5000;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const ESMS_API_KEY = process.env.ESMS_API_KEY;
+const ESMS_SENDER_ID = process.env.ESMS_SENDER_ID;
+
+if (!JWT_SECRET) {
+    console.error("ERREUR : JWT_SECRET n'est pas configuré.");
     process.exit(1);
 }
 
-if (!process.env.ESMS_API_KEY) {
-    console.error(
-        "ERREUR : ESMS_API_KEY n'est pas configurée dans le fichier .env"
-    );
+if (!ESMS_API_KEY) {
+    console.error("ERREUR : ESMS_API_KEY n'est pas configuré.");
     process.exit(1);
 }
 
-if (!process.env.ESMS_SENDER_ID) {
-    console.error(
-        "ERREUR : ESMS_SENDER_ID n'est pas configuré dans le fichier .env"
-    );
+if (!ESMS_SENDER_ID) {
+    console.error("ERREUR : ESMS_SENDER_ID n'est pas configuré.");
     process.exit(1);
 }
 
 // ========================================
-// APPLICATION EXPRESS
+// APPLICATION
 // ========================================
 
 const app = express();
 
-app.disable("x-powered-by");
+// ========================================
+// SÉCURITÉ
+// ========================================
 
-// ========================================
-// HELMET
-// ========================================
+app.disable("x-powered-by");
 
 app.use(
     helmet({
-        crossOriginResourcePolicy: {
-            policy: "cross-origin"
-        }
+        crossOriginResourcePolicy: false
     })
 );
 
@@ -62,12 +60,13 @@ app.use(
 
 const originesAutorisees = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173",
+    "https://projet-sms-ndqx.onrender.com"
 ];
 
 if (process.env.FRONTEND_URL) {
     originesAutorisees.push(
-        process.env.FRONTEND_URL
+        process.env.FRONTEND_URL.replace(/\/$/, "")
     );
 }
 
@@ -82,6 +81,11 @@ app.use(
             if (originesAutorisees.includes(origin)) {
                 return callback(null, true);
             }
+
+            console.error(
+                "Origine CORS refusée :",
+                origin
+            );
 
             return callback(
                 new Error("Origine non autorisée.")
@@ -98,7 +102,9 @@ app.use(
         allowedHeaders: [
             "Content-Type",
             "Authorization"
-        ]
+        ],
+
+        credentials: true
     })
 );
 
@@ -113,7 +119,7 @@ app.use(
 );
 
 // ========================================
-// LIMITATION GÉNÉRALE
+// RATE LIMIT GLOBAL
 // ========================================
 
 const limiteGenerale = rateLimit({
@@ -121,17 +127,15 @@ const limiteGenerale = rateLimit({
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
-        message:
-            "Trop de requêtes. Veuillez réessayer plus tard."
+        message: "Trop de requêtes. Veuillez réessayer plus tard."
     }
 });
 
 app.use(limiteGenerale);
 
 // ========================================
-// LIMITATION LOGIN
+// RATE LIMIT CONNEXION
 // ========================================
 
 const limiteLogin = rateLimit({
@@ -139,15 +143,13 @@ const limiteLogin = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
-        message:
-            "Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes."
+        message: "Trop de tentatives de connexion."
     }
 });
 
 // ========================================
-// LIMITATION SMS
+// RATE LIMIT SMS
 // ========================================
 
 const limiteSMS = rateLimit({
@@ -155,76 +157,104 @@ const limiteSMS = rateLimit({
     max: 50,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
-        message:
-            "Trop d'envois SMS. Veuillez patienter avant de recommencer."
+        message: "Trop d'envois SMS. Veuillez patienter."
     }
 });
 
 // ========================================
-// VALIDATION
-// ========================================
-
-const verifierValidation = (
-    req,
-    res,
-    next
-) => {
-
-    const erreurs =
-        validationResult(req);
-
-    if (!erreurs.isEmpty()) {
-
-        return res.status(400).json({
-            message:
-                "Données invalides.",
-
-            erreurs:
-                erreurs.array().map(
-                    (erreur) => ({
-                        champ:
-                            erreur.path,
-
-                        message:
-                            erreur.msg
-                    })
-                )
-        });
-    }
-
-    next();
-};
-
-// ========================================
-// CONNEXION POSTGRESQL
+// BASE DE DONNÉES
 // ========================================
 
 const pool = new Pool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    port: process.env.DB_PORT || 5432,
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD
+    password: process.env.DB_PASSWORD,
+    ssl:
+        process.env.NODE_ENV === "production"
+            ? { rejectUnauthorized: false }
+            : false
 });
 
-pool.connect()
-    .then((client) => {
+pool.on("error", (error) => {
+    console.error(
+        "Erreur inattendue PostgreSQL :",
+        error.message
+    );
+});
 
-        console.log(
-            "Connexion à PostgreSQL réussie !"
-        );
+// ========================================
+// TEST BASE DE DONNÉES
+// ========================================
 
-        client.release();
+pool.query("SELECT NOW()")
+    .then(() => {
+        console.log("Connexion PostgreSQL réussie.");
     })
     .catch((error) => {
-
         console.error(
-            "Erreur connexion PostgreSQL :",
+            "Erreur PostgreSQL :",
             error.message
         );
     });
+
+// ========================================
+// FONCTION VALIDATION
+// ========================================
+
+function verifierValidation(req, res, next) {
+
+    const erreurs = validationResult(req);
+
+    if (!erreurs.isEmpty()) {
+        return res.status(400).json({
+            message: "Données invalides.",
+            erreurs: erreurs.array()
+        });
+    }
+
+    next();
+}
+
+// ========================================
+// FONCTION AUTHENTIFICATION JWT
+// ========================================
+
+function authentifier(req, res, next) {
+
+    const authorization =
+        req.headers.authorization;
+
+    if (
+        !authorization ||
+        !authorization.startsWith("Bearer ")
+    ) {
+        return res.status(401).json({
+            message: "Authentification requise."
+        });
+    }
+
+    const token =
+        authorization.substring(7);
+
+    try {
+
+        const utilisateur =
+            jwt.verify(token, JWT_SECRET);
+
+        req.utilisateur = utilisateur;
+
+        next();
+
+    } catch (error) {
+
+        return res.status(401).json({
+            message: "Session expirée ou token invalide."
+        });
+    }
+}
 
 // ========================================
 // ROUTE PRINCIPALE
@@ -233,25 +263,41 @@ pool.connect()
 app.get("/", (req, res) => {
 
     res.json({
-        message:
-            "Serveur SMS Clients opérationnel"
+        message: "Serveur SMS Clients opérationnel"
     });
 });
 
 // ========================================
-// ROUTE DE SANTÉ
+// HEALTH CHECK
 // ========================================
 
-app.get("/health", (req, res) => {
+app.get("/health", async (req, res) => {
 
-    res.status(200).json({
-        status: "ok",
-        service: "SMS Clients API"
-    });
+    try {
+
+        await pool.query("SELECT 1");
+
+        res.json({
+            status: "ok",
+            service: "SMS Clients API"
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Health check PostgreSQL :",
+            error.message
+        );
+
+        res.status(503).json({
+            status: "error",
+            service: "SMS Clients API"
+        });
+    }
 });
 
 // ========================================
-// LOGIN
+// CONNEXION ADMINISTRATEUR
 // ========================================
 
 app.post(
@@ -262,20 +308,13 @@ app.post(
         body("email")
             .trim()
             .isEmail()
-            .withMessage(
-                "Adresse email invalide."
-            )
+            .withMessage("Adresse email invalide.")
             .normalizeEmail(),
 
-        body("mot_de_passe")
+        body("password")
             .isString()
-            .isLength({
-                min: 1,
-                max: 200
-            })
-            .withMessage(
-                "Mot de passe invalide."
-            )
+            .isLength({ min: 1 })
+            .withMessage("Mot de passe requis.")
     ],
 
     verifierValidation,
@@ -286,20 +325,20 @@ app.post(
 
             const {
                 email,
-                mot_de_passe
+                password
             } = req.body;
 
-            const result =
-                await pool.query(
-                    `SELECT *
-                     FROM users
-                     WHERE email = $1`,
-                    [email]
-                );
+            const resultat = await pool.query(
+                `
+                SELECT id, nom, email, password
+                FROM users
+                WHERE email = $1
+                LIMIT 1
+                `,
+                [email]
+            );
 
-            if (
-                result.rows.length === 0
-            ) {
+            if (resultat.rows.length === 0) {
 
                 return res.status(401).json({
                     message:
@@ -308,12 +347,12 @@ app.post(
             }
 
             const utilisateur =
-                result.rows[0];
+                resultat.rows[0];
 
             const motDePasseCorrect =
                 await bcrypt.compare(
-                    mot_de_passe,
-                    utilisateur.mot_de_passe
+                    password,
+                    utilisateur.password
                 );
 
             if (!motDePasseCorrect) {
@@ -324,210 +363,187 @@ app.post(
                 });
             }
 
-            const token =
-                jwt.sign(
-                    {
-                        id:
-                            utilisateur.id,
-
-                        email:
-                            utilisateur.email,
-
-                        nom:
-                            utilisateur.nom
-                    },
-
-                    process.env.JWT_SECRET,
-
-                    {
-                        expiresIn: "8h"
-                    }
-                );
+            const token = jwt.sign(
+                {
+                    id: utilisateur.id,
+                    email: utilisateur.email,
+                    nom: utilisateur.nom
+                },
+                JWT_SECRET,
+                {
+                    expiresIn: "8h"
+                }
+            );
 
             res.json({
-                message:
-                    "Connexion réussie.",
-
+                message: "Connexion réussie.",
                 token,
-
                 utilisateur: {
-                    id:
-                        utilisateur.id,
-
-                    nom:
-                        utilisateur.nom,
-
-                    email:
-                        utilisateur.email
+                    id: utilisateur.id,
+                    nom: utilisateur.nom,
+                    email: utilisateur.email
                 }
             });
 
         } catch (error) {
 
             console.error(
-                "Erreur connexion :",
+                "Erreur login :",
                 error.message
             );
 
             res.status(500).json({
                 message:
-                    "Erreur lors de la connexion."
+                    "Erreur interne du serveur."
             });
         }
     }
 );
 
 // ========================================
-// JWT
-// ========================================
-
-const verifierToken = (
-    req,
-    res,
-    next
-) => {
-
-    const authorization =
-        req.headers.authorization;
-
-    if (
-        !authorization ||
-        !authorization.startsWith(
-            "Bearer "
-        )
-    ) {
-
-        return res.status(401).json({
-            message:
-                "Accès non autorisé. Token manquant."
-        });
-    }
-
-    const token =
-        authorization.split(" ")[1];
-
-    try {
-
-        const decoded =
-            jwt.verify(
-                token,
-                process.env.JWT_SECRET
-            );
-
-        req.utilisateur =
-            decoded;
-
-        next();
-
-    } catch (error) {
-
-        return res.status(401).json({
-            message:
-                "Token invalide ou expiré."
-        });
-    }
-};
-
-// ========================================
-// CLIENTS - GET
+// DASHBOARD
 // ========================================
 
 app.get(
-    "/clients",
-    verifierToken,
-
+    "/dashboard",
+    authentifier,
     async (req, res) => {
 
         try {
 
-            const result =
+            const clients =
                 await pool.query(
-                    `SELECT
-                        c.*,
-                        g.nom AS groupe_nom
-                     FROM clients c
-                     LEFT JOIN groupes g
-                        ON c.groupe_id = g.id
-                     ORDER BY c.id DESC`
+                    "SELECT COUNT(*) AS total FROM clients"
                 );
 
-            res.json(
-                result.rows
-            );
+            const groupes =
+                await pool.query(
+                    "SELECT COUNT(*) AS total FROM groupes"
+                );
+
+            const historique =
+                await pool.query(
+                    "SELECT COUNT(*) AS total FROM historique_sms"
+                );
+
+            const modeles =
+                await pool.query(
+                    "SELECT COUNT(*) AS total FROM modeles_sms"
+                );
+
+            res.json({
+                clients: Number(
+                    clients.rows[0].total
+                ),
+
+                groupes: Number(
+                    groupes.rows[0].total
+                ),
+
+                historique: Number(
+                    historique.rows[0].total
+                ),
+
+                modeles: Number(
+                    modeles.rows[0].total
+                )
+            });
 
         } catch (error) {
 
             console.error(
-                "Erreur récupération clients :",
+                "Erreur dashboard :",
                 error.message
             );
 
             res.status(500).json({
                 message:
-                    "Erreur récupération clients."
+                    "Impossible de charger le tableau de bord."
             });
         }
     }
 );
 
 // ========================================
-// CLIENTS - AJOUT
+// CLIENTS - LISTE
+// ========================================
+
+app.get(
+    "/clients",
+    authentifier,
+    async (req, res) => {
+
+        try {
+
+            const resultat =
+                await pool.query(
+                    `
+                    SELECT
+                        c.id,
+                        c.nom,
+                        c.prenom,
+                        c.telephone,
+                        c.email,
+                        c.groupe_id,
+                        g.nom AS groupe_nom
+                    FROM clients c
+                    LEFT JOIN groupes g
+                        ON c.groupe_id = g.id
+                    ORDER BY c.id DESC
+                    `
+                );
+
+            res.json(resultat.rows);
+
+        } catch (error) {
+
+            console.error(
+                "Erreur clients :",
+                error.message
+            );
+
+            res.status(500).json({
+                message:
+                    "Impossible de récupérer les clients."
+            });
+        }
+    }
+);
+
+// ========================================
+// CLIENT - AJOUT
 // ========================================
 
 app.post(
     "/clients",
-    verifierToken,
+    authentifier,
 
     [
         body("nom")
             .trim()
-            .isLength({
-                min: 1,
-                max: 100
-            })
-            .withMessage(
-                "Le nom est obligatoire."
-            ),
+            .isLength({ min: 1, max: 100 })
+            .withMessage("Nom requis."),
 
         body("prenom")
-            .optional({
-                values: "null"
-            })
+            .optional({ nullable: true })
             .trim()
-            .isLength({
-                max: 100
-            }),
+            .isLength({ max: 100 }),
 
         body("telephone")
             .trim()
-            .isLength({
-                min: 8,
-                max: 20
-            })
-            .withMessage(
-                "Numéro de téléphone invalide."
-            ),
+            .isLength({ min: 6, max: 30 })
+            .withMessage("Téléphone invalide."),
 
         body("email")
-            .optional({
-                values: "null"
-            })
+            .optional({ nullable: true })
             .trim()
             .isEmail()
-            .withMessage(
-                "Adresse email invalide."
-            ),
+            .withMessage("Email invalide."),
 
-        body("groupe_id")
-            .optional({
-                values: "null"
-            })
-            .isInt({
-                min: 1
-            })
-            .withMessage(
-                "Groupe invalide."
-            )
+        body("groupeId")
+            .optional({ nullable: true })
+            .isInt()
+            .withMessage("Groupe invalide.")
     ],
 
     verifierValidation,
@@ -541,37 +557,34 @@ app.post(
                 prenom,
                 telephone,
                 email,
-                groupe,
-                groupe_id
+                groupeId
             } = req.body;
 
-            const result =
+            const resultat =
                 await pool.query(
-                    `INSERT INTO clients
+                    `
+                    INSERT INTO clients
                     (
                         nom,
                         prenom,
                         telephone,
                         email,
-                        groupe,
                         groupe_id
                     )
-                    VALUES
-                    ($1, $2, $3, $4, $5, $6)
-                    RETURNING *`,
-
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING *
+                    `,
                     [
                         nom,
                         prenom || null,
                         telephone,
                         email || null,
-                        groupe || null,
-                        groupe_id || null
+                        groupeId || null
                     ]
                 );
 
             res.status(201).json(
-                result.rows[0]
+                resultat.rows[0]
             );
 
         } catch (error) {
@@ -583,28 +596,24 @@ app.post(
 
             res.status(500).json({
                 message:
-                    "Erreur lors de l'ajout du client."
+                    "Impossible d'ajouter le client."
             });
         }
     }
 );
 
 // ========================================
-// CLIENTS - SUPPRESSION
+// CLIENT - SUPPRESSION
 // ========================================
 
 app.delete(
     "/clients/:id",
-    verifierToken,
+    authentifier,
 
     [
         param("id")
-            .isInt({
-                min: 1
-            })
-            .withMessage(
-                "Identifiant client invalide."
-            )
+            .isInt()
+            .withMessage("ID client invalide.")
     ],
 
     verifierValidation,
@@ -613,14 +622,23 @@ app.delete(
 
         try {
 
-            const { id } =
-                req.params;
+            const resultat =
+                await pool.query(
+                    `
+                    DELETE FROM clients
+                    WHERE id = $1
+                    RETURNING id
+                    `,
+                    [req.params.id]
+                );
 
-            await pool.query(
-                `DELETE FROM clients
-                 WHERE id = $1`,
-                [id]
-            );
+            if (resultat.rows.length === 0) {
+
+                return res.status(404).json({
+                    message:
+                        "Client introuvable."
+                });
+            }
 
             res.json({
                 message:
@@ -636,45 +654,47 @@ app.delete(
 
             res.status(500).json({
                 message:
-                    "Erreur lors de la suppression."
+                    "Impossible de supprimer le client."
             });
         }
     }
 );
 
 // ========================================
-// GROUPES - GET
+// GROUPES - LISTE
 // ========================================
 
 app.get(
     "/groupes",
-    verifierToken,
-
+    authentifier,
     async (req, res) => {
 
         try {
 
-            const result =
+            const resultat =
                 await pool.query(
-                    `SELECT *
-                     FROM groupes
-                     ORDER BY id ASC`
+                    `
+                    SELECT
+                        id,
+                        nom,
+                        description
+                    FROM groupes
+                    ORDER BY nom ASC
+                    `
                 );
 
-            res.json(
-                result.rows
-            );
+            res.json(resultat.rows);
 
         } catch (error) {
 
             console.error(
-                "Erreur récupération groupes :",
+                "Erreur groupes :",
                 error.message
             );
 
             res.status(500).json({
                 message:
-                    "Erreur récupération groupes."
+                    "Impossible de récupérer les groupes."
             });
         }
     }
@@ -686,27 +706,18 @@ app.get(
 
 app.post(
     "/groupes",
-    verifierToken,
+    authentifier,
 
     [
         body("nom")
             .trim()
-            .isLength({
-                min: 1,
-                max: 100
-            })
-            .withMessage(
-                "Le nom du groupe est obligatoire."
-            ),
+            .isLength({ min: 1, max: 150 })
+            .withMessage("Nom du groupe requis."),
 
         body("description")
-            .optional({
-                values: "null"
-            })
+            .optional({ nullable: true })
             .trim()
-            .isLength({
-                max: 500
-            })
+            .isLength({ max: 500 })
     ],
 
     verifierValidation,
@@ -720,17 +731,17 @@ app.post(
                 description
             } = req.body;
 
-            const result =
+            const resultat =
                 await pool.query(
-                    `INSERT INTO groupes
+                    `
+                    INSERT INTO groupes
                     (
                         nom,
                         description
                     )
-                    VALUES
-                    ($1, $2)
-                    RETURNING *`,
-
+                    VALUES ($1, $2)
+                    RETURNING *
+                    `,
                     [
                         nom,
                         description || null
@@ -738,7 +749,7 @@ app.post(
                 );
 
             res.status(201).json(
-                result.rows[0]
+                resultat.rows[0]
             );
 
         } catch (error) {
@@ -750,450 +761,70 @@ app.post(
 
             res.status(500).json({
                 message:
-                    "Erreur lors de l'ajout du groupe."
+                    "Impossible d'ajouter le groupe."
             });
         }
     }
 );
 
 // ========================================
-// ENVOI SMS ESMS AFRICA
+// MODÈLES SMS - LISTE
 // ========================================
 
-const envoyerSMS = async (
-    telephone,
-    message
-) => {
-
-    const response =
-        await axios.post(
-            "https://sms.esmsafrica.io/api/messages/send",
-
-            {
-                to: telephone,
-                text: message,
-                sender_id:
-                    process.env.ESMS_SENDER_ID
-            },
-
-            {
-                headers: {
-                    Authorization:
-                        `Bearer ${process.env.ESMS_API_KEY}`,
-
-                    "Content-Type":
-                        "application/json"
-                },
-
-                timeout: 15000
-            }
-        );
-
-    return response.data;
-};
-
-// ========================================
-// SMS INDIVIDUEL
-// ========================================
-
-app.post(
-    "/sms/send",
-    verifierToken,
-    limiteSMS,
-
-    [
-        body("telephone")
-            .trim()
-            .isLength({
-                min: 8,
-                max: 20
-            })
-            .withMessage(
-                "Numéro de téléphone invalide."
-            ),
-
-        body("message")
-            .isString()
-            .trim()
-            .isLength({
-                min: 1,
-                max: 1600
-            })
-            .withMessage(
-                "Message SMS invalide."
-            ),
-
-        body("client_id")
-            .optional({
-                values: "null"
-            })
-            .isInt({
-                min: 1
-            }),
-
-        body("groupe_id")
-            .optional({
-                values: "null"
-            })
-            .isInt({
-                min: 1
-            })
-    ],
-
-    verifierValidation,
-
+app.get(
+    "/modeles-sms",
+    authentifier,
     async (req, res) => {
 
         try {
 
-            const {
-                client_id,
-                telephone,
-                message,
-                groupe_id
-            } = req.body;
-
-            let statut = "envoyé";
-
-            try {
-
-                await envoyerSMS(
-                    telephone,
-                    message
-                );
-
-            } catch (smsError) {
-
-                console.error(
-                    "Erreur eSMS Africa :",
-                    smsError.response?.data ||
-                    smsError.message
-                );
-
-                statut = "échec";
-            }
-
-            const nombreSMS =
-                Math.ceil(
-                    message.length / 160
-                );
-
-            await pool.query(
-                `INSERT INTO historique_sms
-                (
-                    client_id,
-                    telephone,
-                    message,
-                    groupe_id,
-                    statut,
-                    nombre_sms
-                )
-                VALUES
-                ($1, $2, $3, $4, $5, $6)`,
-
-                [
-                    client_id || null,
-                    telephone,
-                    message,
-                    groupe_id || null,
-                    statut,
-                    nombreSMS
-                ]
-            );
-
-            if (
-                statut === "échec"
-            ) {
-
-                return res.status(500).json({
-                    message:
-                        "Échec de l'envoi du SMS."
-                });
-            }
-
-            res.json({
-                message:
-                    "SMS envoyé avec succès.",
-
-                statut
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Erreur envoi SMS :",
-                error.message
-            );
-
-            res.status(500).json({
-                message:
-                    "Erreur lors de l'envoi du SMS."
-            });
-        }
-    }
-);
-
-// ========================================
-// SMS GROUPE
-// ========================================
-
-app.post(
-    "/sms/send-group",
-    verifierToken,
-    limiteSMS,
-
-    [
-        body("groupe_id")
-            .isInt({
-                min: 1
-            })
-            .withMessage(
-                "Groupe invalide."
-            ),
-
-        body("message")
-            .isString()
-            .trim()
-            .isLength({
-                min: 1,
-                max: 1600
-            })
-            .withMessage(
-                "Message SMS invalide."
-            )
-    ],
-
-    verifierValidation,
-
-    async (req, res) => {
-
-        try {
-
-            const {
-                groupe_id,
-                message
-            } = req.body;
-
-            const clientsResult =
+            const resultat =
                 await pool.query(
-                    `SELECT *
-                     FROM clients
-                     WHERE groupe_id = $1
-                     ORDER BY id ASC`,
-                    [groupe_id]
-                );
-
-            if (
-                clientsResult.rows.length === 0
-            ) {
-
-                return res.status(404).json({
-                    message:
-                        "Aucun client dans ce groupe."
-                });
-            }
-
-            let envoyes = 0;
-            let echecs = 0;
-
-            const nombreSMS =
-                Math.ceil(
-                    message.length / 160
-                );
-
-            for (
-                const client
-                of clientsResult.rows
-            ) {
-
-                let statut = "envoyé";
-
-                try {
-
-                    await envoyerSMS(
-                        client.telephone,
+                    `
+                    SELECT
+                        id,
+                        nom,
                         message
-                    );
-
-                    envoyes++;
-
-                } catch (smsError) {
-
-                    console.error(
-                        `Erreur SMS ${client.telephone} :`,
-                        smsError.response?.data ||
-                        smsError.message
-                    );
-
-                    statut = "échec";
-                    echecs++;
-                }
-
-                await pool.query(
-                    `INSERT INTO historique_sms
-                    (
-                        client_id,
-                        telephone,
-                        message,
-                        groupe_id,
-                        statut,
-                        nombre_sms
-                    )
-                    VALUES
-                    ($1, $2, $3, $4, $5, $6)`,
-
-                    [
-                        client.id,
-                        client.telephone,
-                        message,
-                        groupe_id,
-                        statut,
-                        nombreSMS
-                    ]
+                    FROM modeles_sms
+                    ORDER BY id DESC
+                    `
                 );
-            }
 
-            res.json({
-
-                message:
-                    "Envoi groupé terminé.",
-
-                total:
-                    clientsResult.rows.length,
-
-                envoyes,
-
-                echecs
-            });
+            res.json(resultat.rows);
 
         } catch (error) {
 
             console.error(
-                "Erreur envoi groupe :",
+                "Erreur modèles SMS :",
                 error.message
             );
 
             res.status(500).json({
                 message:
-                    "Erreur lors de l'envoi groupé."
+                    "Impossible de récupérer les modèles SMS."
             });
         }
     }
 );
 
 // ========================================
-// HISTORIQUE
-// ========================================
-
-app.get(
-    "/historique",
-    verifierToken,
-
-    async (req, res) => {
-
-        try {
-
-            const result =
-                await pool.query(
-                    `SELECT
-                        h.*,
-                        c.nom,
-                        c.prenom,
-                        g.nom AS groupe_nom
-                     FROM historique_sms h
-                     LEFT JOIN clients c
-                        ON h.client_id = c.id
-                     LEFT JOIN groupes g
-                        ON h.groupe_id = g.id
-                     ORDER BY h.date_envoi DESC`
-                );
-
-            res.json(
-                result.rows
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Erreur récupération historique :",
-                error.message
-            );
-
-            res.status(500).json({
-                message:
-                    "Erreur récupération historique."
-            });
-        }
-    }
-);
-
-// ========================================
-// MODÈLES SMS - GET
-// ========================================
-
-app.get(
-    "/modeles-sms",
-    verifierToken,
-
-    async (req, res) => {
-
-        try {
-
-            const result =
-                await pool.query(
-                    `SELECT *
-                     FROM modeles_sms
-                     ORDER BY date_creation DESC`
-                );
-
-            res.json(
-                result.rows
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Erreur récupération modèles :",
-                error.message
-            );
-
-            res.status(500).json({
-                message:
-                    "Erreur récupération modèles."
-            });
-        }
-    }
-);
-
-// ========================================
-// MODÈLES SMS - AJOUT
+// MODÈLE SMS - AJOUT
 // ========================================
 
 app.post(
     "/modeles-sms",
-    verifierToken,
+    authentifier,
 
     [
         body("nom")
             .trim()
-            .isLength({
-                min: 1,
-                max: 100
-            })
-            .withMessage(
-                "Le nom est obligatoire."
-            ),
+            .isLength({ min: 1, max: 150 })
+            .withMessage("Nom du modèle requis."),
 
         body("message")
-            .isString()
             .trim()
-            .isLength({
-                min: 1,
-                max: 1600
-            })
-            .withMessage(
-                "Le message est obligatoire."
-            )
+            .isLength({ min: 1, max: 1000 })
+            .withMessage("Message requis.")
     ],
 
     verifierValidation,
@@ -1207,17 +838,17 @@ app.post(
                 message
             } = req.body;
 
-            const result =
+            const resultat =
                 await pool.query(
-                    `INSERT INTO modeles_sms
+                    `
+                    INSERT INTO modeles_sms
                     (
                         nom,
                         message
                     )
-                    VALUES
-                    ($1, $2)
-                    RETURNING *`,
-
+                    VALUES ($1, $2)
+                    RETURNING *
+                    `,
                     [
                         nom,
                         message
@@ -1225,7 +856,7 @@ app.post(
                 );
 
             res.status(201).json(
-                result.rows[0]
+                resultat.rows[0]
             );
 
         } catch (error) {
@@ -1237,94 +868,320 @@ app.post(
 
             res.status(500).json({
                 message:
-                    "Erreur lors de l'ajout du modèle."
+                    "Impossible d'ajouter le modèle SMS."
             });
         }
     }
 );
 
 // ========================================
-// DASHBOARD
+// ENVOI SMS INDIVIDUEL
 // ========================================
 
-app.get(
-    "/dashboard",
-    verifierToken,
+app.post(
+    "/sms/send",
+    authentifier,
+    limiteSMS,
+
+    [
+        body("telephone")
+            .trim()
+            .isLength({ min: 6, max: 30 })
+            .withMessage("Numéro de téléphone invalide."),
+
+        body("message")
+            .trim()
+            .isLength({ min: 1, max: 1000 })
+            .withMessage("Message SMS invalide.")
+    ],
+
+    verifierValidation,
 
     async (req, res) => {
 
         try {
 
-            const clientsResult =
-                await pool.query(
-                    `SELECT COUNT(*) AS total
-                     FROM clients`
+            const {
+                telephone,
+                message
+            } = req.body;
+
+            const resultat =
+                await axios.post(
+                    "https://sms.esmsafrica.io/api/messages/send",
+                    {
+                        to: telephone,
+                        text: message,
+                        sender_id: ESMS_SENDER_ID
+                    },
+                    {
+                        headers: {
+                            Authorization:
+                                `Bearer ${ESMS_API_KEY}`,
+
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        timeout: 15000
+                    }
                 );
 
-            const groupesResult =
-                await pool.query(
-                    `SELECT COUNT(*) AS total
-                     FROM groupes`
-                );
-
-            const smsResult =
-                await pool.query(
-                    `SELECT COUNT(*) AS total
-                     FROM historique_sms`
-                );
-
-            const smsReussisResult =
-                await pool.query(
-                    `SELECT COUNT(*) AS total
-                     FROM historique_sms
-                     WHERE statut = 'envoyé'`
-                );
-
-            const smsEchecsResult =
-                await pool.query(
-                    `SELECT COUNT(*) AS total
-                     FROM historique_sms
-                     WHERE statut = 'échec'`
-                );
+            await pool.query(
+                `
+                INSERT INTO historique_sms
+                (
+                    telephone,
+                    message,
+                    statut
+                )
+                VALUES ($1, $2, $3)
+                `,
+                [
+                    telephone,
+                    message,
+                    "envoyé"
+                ]
+            );
 
             res.json({
-
-                clients:
-                    Number(
-                        clientsResult.rows[0].total
-                    ),
-
-                groupes:
-                    Number(
-                        groupesResult.rows[0].total
-                    ),
-
-                sms_total:
-                    Number(
-                        smsResult.rows[0].total
-                    ),
-
-                sms_reussis:
-                    Number(
-                        smsReussisResult.rows[0].total
-                    ),
-
-                sms_echecs:
-                    Number(
-                        smsEchecsResult.rows[0].total
-                    )
+                message:
+                    "SMS envoyé avec succès.",
+                resultat:
+                    resultat.data
             });
 
         } catch (error) {
 
             console.error(
-                "Erreur dashboard :",
+                "Erreur envoi SMS :",
+                error.response?.data ||
+                error.message
+            );
+
+            try {
+
+                const {
+                    telephone,
+                    message
+                } = req.body;
+
+                await pool.query(
+                    `
+                    INSERT INTO historique_sms
+                    (
+                        telephone,
+                        message,
+                        statut
+                    )
+                    VALUES ($1, $2, $3)
+                    `,
+                    [
+                        telephone,
+                        message,
+                        "échec"
+                    ]
+                );
+
+            } catch (historiqueError) {
+
+                console.error(
+                    "Erreur historique :",
+                    historiqueError.message
+                );
+            }
+
+            res.status(500).json({
+                message:
+                    "Échec de l'envoi du SMS."
+            });
+        }
+    }
+);
+
+// ========================================
+// ENVOI SMS À UN GROUPE
+// ========================================
+
+app.post(
+    "/sms/send-group",
+    authentifier,
+    limiteSMS,
+
+    [
+        body("groupeId")
+            .isInt()
+            .withMessage("Groupe invalide."),
+
+        body("message")
+            .trim()
+            .isLength({ min: 1, max: 1000 })
+            .withMessage("Message SMS invalide.")
+    ],
+
+    verifierValidation,
+
+    async (req, res) => {
+
+        try {
+
+            const {
+                groupeId,
+                message
+            } = req.body;
+
+            const clients =
+                await pool.query(
+                    `
+                    SELECT telephone
+                    FROM clients
+                    WHERE groupe_id = $1
+                    AND telephone IS NOT NULL
+                    `,
+                    [groupeId]
+                );
+
+            if (clients.rows.length === 0) {
+
+                return res.status(404).json({
+                    message:
+                        "Aucun client trouvé dans ce groupe."
+                });
+            }
+
+            let envoyes = 0;
+            let echecs = 0;
+
+            for (
+                const client of clients.rows
+            ) {
+
+                try {
+
+                    await axios.post(
+                        "https://sms.esmsafrica.io/api/messages/send",
+                        {
+                            to: client.telephone,
+                            text: message,
+                            sender_id:
+                                ESMS_SENDER_ID
+                        },
+                        {
+                            headers: {
+                                Authorization:
+                                    `Bearer ${ESMS_API_KEY}`,
+
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            timeout: 15000
+                        }
+                    );
+
+                    await pool.query(
+                        `
+                        INSERT INTO historique_sms
+                        (
+                            telephone,
+                            message,
+                            statut
+                        )
+                        VALUES ($1, $2, $3)
+                        `,
+                        [
+                            client.telephone,
+                            message,
+                            "envoyé"
+                        ]
+                    );
+
+                    envoyes++;
+
+                } catch (error) {
+
+                    echecs++;
+
+                    await pool.query(
+                        `
+                        INSERT INTO historique_sms
+                        (
+                            telephone,
+                            message,
+                            statut
+                        )
+                        VALUES ($1, $2, $3)
+                        `,
+                        [
+                            client.telephone,
+                            message,
+                            "échec"
+                        ]
+                    );
+                }
+            }
+
+            res.json({
+                message:
+                    "Campagne SMS terminée.",
+                total:
+                    clients.rows.length,
+                envoyes,
+                echecs
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Erreur SMS groupe :",
                 error.message
             );
 
             res.status(500).json({
                 message:
-                    "Erreur lors du chargement des statistiques."
+                    "Impossible d'envoyer les SMS au groupe."
+            });
+        }
+    }
+);
+
+// ========================================
+// HISTORIQUE SMS
+// ========================================
+
+app.get(
+    "/historique",
+    authentifier,
+    async (req, res) => {
+
+        try {
+
+            const resultat =
+                await pool.query(
+                    `
+                    SELECT
+                        id,
+                        telephone,
+                        message,
+                        statut,
+                        date_envoi
+                    FROM historique_sms
+                    ORDER BY id DESC
+                    `
+                );
+
+            res.json(resultat.rows);
+
+        } catch (error) {
+
+            console.error(
+                "Erreur historique :",
+                error.message
+            );
+
+            res.status(500).json({
+                message:
+                    "Impossible de récupérer l'historique."
             });
         }
     }
@@ -1338,13 +1195,14 @@ app.use(
     (error, req, res, next) => {
 
         if (
+            error &&
             error.message ===
             "Origine non autorisée."
         ) {
 
             return res.status(403).json({
                 message:
-                    "Accès refusé."
+                    "Origine non autorisée."
             });
         }
 
@@ -1353,7 +1211,21 @@ app.use(
 );
 
 // ========================================
-// ERREUR GÉNÉRALE
+// ERREUR 404
+// ========================================
+
+app.use(
+    (req, res) => {
+
+        res.status(404).json({
+            message:
+                "Route introuvable."
+        });
+    }
+);
+
+// ========================================
+// ERREUR SERVEUR
 // ========================================
 
 app.use(
@@ -1366,17 +1238,14 @@ app.use(
 
         res.status(500).json({
             message:
-                "Une erreur interne est survenue."
+                "Erreur interne du serveur."
         });
     }
 );
 
 // ========================================
-// DÉMARRAGE DU SERVEUR
+// DÉMARRAGE SERVEUR
 // ========================================
-
-const PORT =
-    process.env.PORT || 5000;
 
 app.listen(
     PORT,
@@ -1384,11 +1253,13 @@ app.listen(
     () => {
 
         console.log(
-            `Serveur démarré sur le port ${PORT}`
+            `Serveur SMS Clients démarré sur le port ${PORT}`
         );
 
         console.log(
-            "Sécurité : Helmet + Rate Limit + Validation + JWT"
+            `Environnement : ${
+                process.env.NODE_ENV || "development"
+            }`
         );
     }
 );
