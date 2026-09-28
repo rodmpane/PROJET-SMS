@@ -1,3 +1,4 @@
+```jsx
 import { useEffect, useState } from "react";
 import "./App.css";
 
@@ -78,7 +79,7 @@ function App() {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    email: emailConnexion,
+                    email: emailConnexion.trim(),
                     password: motDePasseConnexion
                 })
             });
@@ -862,3 +863,4 @@ function App() {
 }
 
 export default App;
+```
