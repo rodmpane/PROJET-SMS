@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL =
+import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function App() {
 const [token, setToken] = useState(
@@ -10,14 +11,26 @@ localStorage.getItem("sms_token") || ""
 
 ```
 const [utilisateur, setUtilisateur] = useState(() => {
-    const saved = localStorage.getItem("sms_utilisateur");
-    return saved ? JSON.parse(saved) : null;
+    try {
+        const saved = localStorage.getItem("sms_utilisateur");
+
+        if (!saved) {
+            return null;
+        }
+
+        return JSON.parse(saved);
+    } catch {
+        localStorage.removeItem("sms_utilisateur");
+        localStorage.removeItem("sms_token");
+        return null;
+    }
 });
 
 const [emailConnexion, setEmailConnexion] = useState("");
 const [motDePasseConnexion, setMotDePasseConnexion] = useState("");
 const [erreurConnexion, setErreurConnexion] = useState("");
-const [chargementConnexion, setChargementConnexion] = useState(false);
+const [chargementConnexion, setChargementConnexion] =
+    useState(false);
 
 const [clients, setClients] = useState([]);
 const [groupes, setGroupes] = useState([]);
@@ -73,16 +86,19 @@ const seConnecter = async (e) => {
     setChargementConnexion(true);
 
     try {
-        const response = await fetch(API_URL + "/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                email: emailConnexion.trim(),
-                password: motDePasseConnexion
-            })
-        });
+        const response = await fetch(
+            API_URL + "/login",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: emailConnexion.trim(),
+                    password: motDePasseConnexion
+                })
+            }
+        );
 
         const data = await response.json();
 
@@ -92,7 +108,10 @@ const seConnecter = async (e) => {
             );
         }
 
-        localStorage.setItem("sms_token", data.token);
+        localStorage.setItem(
+            "sms_token",
+            data.token
+        );
 
         localStorage.setItem(
             "sms_utilisateur",
@@ -105,7 +124,9 @@ const seConnecter = async (e) => {
         setEmailConnexion("");
         setMotDePasseConnexion("");
     } catch (error) {
-        setErreurConnexion(error.message);
+        setErreurConnexion(
+            error.message || "Erreur de connexion."
+        );
     } finally {
         setChargementConnexion(false);
     }
@@ -121,19 +142,24 @@ const seDeconnecter = () => {
 
 const chargerClients = async () => {
     try {
-        const response = await fetch(API_URL + "/clients", {
-            headers: getHeaders()
-        });
+        const response = await fetch(
+            API_URL + "/clients",
+            {
+                headers: getHeaders()
+            }
+        );
 
         gererErreurAuthentification(response);
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Erreur clients.");
+            throw new Error(
+                data.message || "Erreur clients."
+            );
         }
 
-        setClients(data);
+        setClients(Array.isArray(data) ? data : []);
     } catch (error) {
         setMessage(error.message);
     }
@@ -141,19 +167,24 @@ const chargerClients = async () => {
 
 const chargerGroupes = async () => {
     try {
-        const response = await fetch(API_URL + "/groupes", {
-            headers: getHeaders()
-        });
+        const response = await fetch(
+            API_URL + "/groupes",
+            {
+                headers: getHeaders()
+            }
+        );
 
         gererErreurAuthentification(response);
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Erreur groupes.");
+            throw new Error(
+                data.message || "Erreur groupes."
+            );
         }
 
-        setGroupes(data);
+        setGroupes(Array.isArray(data) ? data : []);
     } catch (error) {
         setMessage(error.message);
     }
@@ -161,19 +192,26 @@ const chargerGroupes = async () => {
 
 const chargerHistorique = async () => {
     try {
-        const response = await fetch(API_URL + "/historique", {
-            headers: getHeaders()
-        });
+        const response = await fetch(
+            API_URL + "/historique",
+            {
+                headers: getHeaders()
+            }
+        );
 
         gererErreurAuthentification(response);
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Erreur historique.");
+            throw new Error(
+                data.message || "Erreur historique."
+            );
         }
 
-        setHistorique(data);
+        setHistorique(
+            Array.isArray(data) ? data : []
+        );
     } catch (error) {
         setMessage(error.message);
     }
@@ -181,31 +219,40 @@ const chargerHistorique = async () => {
 
 const chargerModeles = async () => {
     try {
-        const response = await fetch(API_URL + "/modeles-sms", {
-            headers: getHeaders()
-        });
+        const response = await fetch(
+            API_URL + "/modeles-sms",
+            {
+                headers: getHeaders()
+            }
+        );
 
         gererErreurAuthentification(response);
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Erreur modèles.");
+            throw new Error(
+                data.message || "Erreur modèles."
+            );
         }
 
-        setModeles(data);
+        setModeles(
+            Array.isArray(data) ? data : []
+        );
     } catch (error) {
         setMessage(error.message);
     }
 };
 
 useEffect(() => {
-    if (token) {
-        chargerClients();
-        chargerGroupes();
-        chargerHistorique();
-        chargerModeles();
+    if (!token) {
+        return;
     }
+
+    chargerClients();
+    chargerGroupes();
+    chargerHistorique();
+    chargerModeles();
 }, [token]);
 
 const ajouterClient = async (e) => {
@@ -215,17 +262,21 @@ const ajouterClient = async (e) => {
     setChargement(true);
 
     try {
-        const response = await fetch(API_URL + "/clients", {
-            method: "POST",
-            headers: getHeaders(true),
-            body: JSON.stringify({
-                nom: nomClient,
-                prenom: prenomClient,
-                telephone: telephoneClient,
-                email: emailClient,
-                groupeId: groupeClient || null
-            })
-        });
+        const response = await fetch(
+            API_URL + "/clients",
+            {
+                method: "POST",
+                headers: getHeaders(true),
+                body: JSON.stringify({
+                    nom: nomClient,
+                    prenom: prenomClient,
+                    telephone: telephoneClient,
+                    email: emailClient,
+                    groupeId:
+                        groupeClient || null
+                })
+            }
+        );
 
         gererErreurAuthentification(response);
 
@@ -233,7 +284,8 @@ const ajouterClient = async (e) => {
 
         if (!response.ok) {
             throw new Error(
-                data.message || "Impossible d'ajouter le client."
+                data.message ||
+                    "Impossible d'ajouter le client."
             );
         }
 
@@ -243,7 +295,9 @@ const ajouterClient = async (e) => {
         setEmailClient("");
         setGroupeClient("");
 
-        setMessage("Client ajouté avec succès.");
+        setMessage(
+            "Client ajouté avec succès."
+        );
 
         chargerClients();
     } catch (error) {
@@ -254,7 +308,11 @@ const ajouterClient = async (e) => {
 };
 
 const supprimerClient = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer ce client ?")) {
+    if (
+        !window.confirm(
+            "Voulez-vous vraiment supprimer ce client ?"
+        )
+    ) {
         return;
     }
 
@@ -273,11 +331,14 @@ const supprimerClient = async (id) => {
 
         if (!response.ok) {
             throw new Error(
-                data.message || "Impossible de supprimer le client."
+                data.message ||
+                    "Impossible de supprimer le client."
             );
         }
 
-        setMessage("Client supprimé avec succès.");
+        setMessage(
+            "Client supprimé avec succès."
+        );
 
         chargerClients();
     } catch (error) {
@@ -292,14 +353,17 @@ const envoyerSms = async (e) => {
     setChargement(true);
 
     try {
-        const response = await fetch(API_URL + "/sms/send", {
-            method: "POST",
-            headers: getHeaders(true),
-            body: JSON.stringify({
-                clientId: clientSms,
-                message: messageSms
-            })
-        });
+        const response = await fetch(
+            API_URL + "/sms/send",
+            {
+                method: "POST",
+                headers: getHeaders(true),
+                body: JSON.stringify({
+                    clientId: clientSms,
+                    message: messageSms
+                })
+            }
+        );
 
         gererErreurAuthentification(response);
 
@@ -307,14 +371,17 @@ const envoyerSms = async (e) => {
 
         if (!response.ok) {
             throw new Error(
-                data.message || "Erreur lors de l'envoi du SMS."
+                data.message ||
+                    "Erreur lors de l'envoi du SMS."
             );
         }
 
         setMessageSms("");
         setClientSms("");
 
-        setMessage("SMS envoyé avec succès.");
+        setMessage(
+            "SMS envoyé avec succès."
+        );
 
         chargerHistorique();
     } catch (error) {
@@ -349,14 +416,17 @@ const envoyerSmsGroupe = async (e) => {
 
         if (!response.ok) {
             throw new Error(
-                data.message || "Erreur lors de l'envoi groupé."
+                data.message ||
+                    "Erreur lors de l'envoi groupé."
             );
         }
 
         setMessageGroupe("");
         setGroupeSms("");
 
-        setMessage("SMS de groupe envoyé avec succès.");
+        setMessage(
+            "SMS de groupe envoyé avec succès."
+        );
 
         chargerHistorique();
     } catch (error) {
@@ -391,14 +461,17 @@ const ajouterModele = async (e) => {
 
         if (!response.ok) {
             throw new Error(
-                data.message || "Impossible d'ajouter le modèle."
+                data.message ||
+                    "Impossible d'ajouter le modèle."
             );
         }
 
         setNomModele("");
         setMessageModele("");
 
-        setMessage("Modèle ajouté avec succès.");
+        setMessage(
+            "Modèle ajouté avec succès."
+        );
 
         chargerModeles();
     } catch (error) {
@@ -420,7 +493,9 @@ if (!token) {
                 <div className="login-box">
                     <h1>SMS Clients</h1>
 
-                    <h2>Connexion administrateur</h2>
+                    <h2>
+                        Connexion administrateur
+                    </h2>
 
                     {erreurConnexion && (
                         <div className="error-message">
@@ -428,15 +503,24 @@ if (!token) {
                         </div>
                     )}
 
-                    <form onSubmit={seConnecter}>
+                    <form
+                        onSubmit={seConnecter}
+                    >
                         <div className="form-group">
-                            <label>Email</label>
+                            <label>
+                                Email
+                            </label>
 
                             <input
                                 type="email"
-                                value={emailConnexion}
+                                value={
+                                    emailConnexion
+                                }
                                 onChange={(e) =>
-                                    setEmailConnexion(e.target.value)
+                                    setEmailConnexion(
+                                        e.target
+                                            .value
+                                    )
                                 }
                                 placeholder="Votre adresse email"
                                 required
@@ -444,14 +528,19 @@ if (!token) {
                         </div>
 
                         <div className="form-group">
-                            <label>Mot de passe</label>
+                            <label>
+                                Mot de passe
+                            </label>
 
                             <input
                                 type="password"
-                                value={motDePasseConnexion}
+                                value={
+                                    motDePasseConnexion
+                                }
                                 onChange={(e) =>
                                     setMotDePasseConnexion(
-                                        e.target.value
+                                        e.target
+                                            .value
                                     )
                                 }
                                 placeholder="Votre mot de passe"
@@ -461,7 +550,9 @@ if (!token) {
 
                         <button
                             type="submit"
-                            disabled={chargementConnexion}
+                            disabled={
+                                chargementConnexion
+                            }
                         >
                             {chargementConnexion
                                 ? "Connexion..."
@@ -479,15 +570,20 @@ return (
         <header className="header">
             <div>
                 <h1>SMS Clients</h1>
-                <p>Gestion et envoi de SMS</p>
+                <p>
+                    Gestion et envoi de SMS
+                </p>
             </div>
 
             <div className="user-area">
                 <span>
-                    {utilisateur?.nom || "Administrateur"}
+                    {utilisateur?.nom ||
+                        "Administrateur"}
                 </span>
 
-                <button onClick={seDeconnecter}>
+                <button
+                    onClick={seDeconnecter}
+                >
                     Déconnexion
                 </button>
             </div>
@@ -501,44 +597,65 @@ return (
             )}
 
             <section className="card">
-                <h2>Ajouter un client</h2>
+                <h2>
+                    Ajouter un client
+                </h2>
 
-                <form onSubmit={ajouterClient}>
+                <form
+                    onSubmit={ajouterClient}
+                >
                     <div className="form-grid">
                         <div className="form-group">
-                            <label>Nom</label>
+                            <label>
+                                Nom
+                            </label>
 
                             <input
                                 type="text"
                                 value={nomClient}
                                 onChange={(e) =>
-                                    setNomClient(e.target.value)
+                                    setNomClient(
+                                        e.target
+                                            .value
+                                    )
                                 }
                                 required
                             />
                         </div>
 
                         <div className="form-group">
-                            <label>Prénom</label>
+                            <label>
+                                Prénom
+                            </label>
 
                             <input
                                 type="text"
                                 value={prenomClient}
                                 onChange={(e) =>
-                                    setPrenomClient(e.target.value)
+                                    setPrenomClient(
+                                        e.target
+                                            .value
+                                    )
                                 }
                                 required
                             />
                         </div>
 
                         <div className="form-group">
-                            <label>Téléphone</label>
+                            <label>
+                                Téléphone
+                            </label>
 
                             <input
                                 type="text"
-                                value={telephoneClient}
+                                value={
+                                    telephoneClient
+                                }
                                 onChange={(e) =>
-                                    setTelephoneClient(e.target.value)
+                                    setTelephoneClient(
+                                        e.target
+                                            .value
+                                    )
                                 }
                                 placeholder="+243..."
                                 required
@@ -546,38 +663,60 @@ return (
                         </div>
 
                         <div className="form-group">
-                            <label>Email</label>
+                            <label>
+                                Email
+                            </label>
 
                             <input
                                 type="email"
-                                value={emailClient}
+                                value={
+                                    emailClient
+                                }
                                 onChange={(e) =>
-                                    setEmailClient(e.target.value)
+                                    setEmailClient(
+                                        e.target
+                                            .value
+                                    )
                                 }
                             />
                         </div>
 
                         <div className="form-group">
-                            <label>Groupe</label>
+                            <label>
+                                Groupe
+                            </label>
 
                             <select
-                                value={groupeClient}
+                                value={
+                                    groupeClient
+                                }
                                 onChange={(e) =>
-                                    setGroupeClient(e.target.value)
+                                    setGroupeClient(
+                                        e.target
+                                            .value
+                                    )
                                 }
                             >
                                 <option value="">
                                     Sans groupe
                                 </option>
 
-                                {groupes.map((groupe) => (
-                                    <option
-                                        key={groupe.id}
-                                        value={groupe.id}
-                                    >
-                                        {groupe.nom}
-                                    </option>
-                                ))}
+                                {groupes.map(
+                                    (groupe) => (
+                                        <option
+                                            key={
+                                                groupe.id
+                                            }
+                                            value={
+                                                groupe.id
+                                            }
+                                        >
+                                            {
+                                                groupe.nom
+                                            }
+                                        </option>
+                                    )
+                                )}
                             </select>
                         </div>
                     </div>
@@ -592,7 +731,9 @@ return (
             </section>
 
             <section className="card">
-                <h2>Liste des clients</h2>
+                <h2>
+                    Liste des clients
+                </h2>
 
                 <div className="table-container">
                     <table>
@@ -600,7 +741,9 @@ return (
                             <tr>
                                 <th>Nom</th>
                                 <th>Prénom</th>
-                                <th>Téléphone</th>
+                                <th>
+                                    Téléphone
+                                </th>
                                 <th>Email</th>
                                 <th>Groupe</th>
                                 <th>Action</th>
@@ -608,39 +751,65 @@ return (
                         </thead>
 
                         <tbody>
-                            {clients.length === 0 ? (
+                            {clients.length ===
+                            0 ? (
                                 <tr>
                                     <td colSpan="6">
-                                        Aucun client enregistré.
+                                        Aucun client
+                                        enregistré.
                                     </td>
                                 </tr>
                             ) : (
-                                clients.map((client) => (
-                                    <tr key={client.id}>
-                                        <td>{client.nom}</td>
-                                        <td>{client.prenom}</td>
-                                        <td>{client.telephone}</td>
-                                        <td>
-                                            {client.email || "-"}
-                                        </td>
-                                        <td>
-                                            {client.groupe_nom ||
-                                                "Sans groupe"}
-                                        </td>
-                                        <td>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    supprimerClient(
-                                                        client.id
-                                                    )
+                                clients.map(
+                                    (client) => (
+                                        <tr
+                                            key={
+                                                client.id
+                                            }
+                                        >
+                                            <td>
+                                                {
+                                                    client.nom
                                                 }
-                                            >
-                                                Supprimer
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+
+                                            <td>
+                                                {
+                                                    client.prenom
+                                                }
+                                            </td>
+
+                                            <td>
+                                                {
+                                                    client.telephone
+                                                }
+                                            </td>
+
+                                            <td>
+                                                {client.email ||
+                                                    "-"}
+                                            </td>
+
+                                            <td>
+                                                {client.groupe_nom ||
+                                                    "Sans groupe"}
+                                            </td>
+
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        supprimerClient(
+                                                            client.id
+                                                        )
+                                                    }
+                                                >
+                                                    Supprimer
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
+                                )
                             )}
                         </tbody>
                     </table>
@@ -648,42 +817,69 @@ return (
             </section>
 
             <section className="card">
-                <h2>Envoyer un SMS</h2>
+                <h2>
+                    Envoyer un SMS
+                </h2>
 
-                <form onSubmit={envoyerSms}>
+                <form
+                    onSubmit={envoyerSms}
+                >
                     <div className="form-group">
-                        <label>Client</label>
+                        <label>
+                            Client
+                        </label>
 
                         <select
                             value={clientSms}
                             onChange={(e) =>
-                                setClientSms(e.target.value)
+                                setClientSms(
+                                    e.target
+                                        .value
+                                )
                             }
                             required
                         >
                             <option value="">
-                                Sélectionner un client
+                                Sélectionner un
+                                client
                             </option>
 
-                            {clients.map((client) => (
-                                <option
-                                    key={client.id}
-                                    value={client.id}
-                                >
-                                    {client.prenom} {client.nom} -{" "}
-                                    {client.telephone}
-                                </option>
-                            ))}
+                            {clients.map(
+                                (client) => (
+                                    <option
+                                        key={
+                                            client.id
+                                        }
+                                        value={
+                                            client.id
+                                        }
+                                    >
+                                        {client.prenom}{" "}
+                                        {
+                                            client.nom
+                                        }{" "}
+                                        -{" "}
+                                        {
+                                            client.telephone
+                                        }
+                                    </option>
+                                )
+                            )}
                         </select>
                     </div>
 
                     <div className="form-group">
-                        <label>Message</label>
+                        <label>
+                            Message
+                        </label>
 
                         <textarea
                             value={messageSms}
                             onChange={(e) =>
-                                setMessageSms(e.target.value)
+                                setMessageSms(
+                                    e.target
+                                        .value
+                                )
                             }
                             rows="5"
                             placeholder="Écrivez votre message..."
@@ -701,41 +897,68 @@ return (
             </section>
 
             <section className="card">
-                <h2>Envoyer à un groupe</h2>
+                <h2>
+                    Envoyer à un groupe
+                </h2>
 
-                <form onSubmit={envoyerSmsGroupe}>
+                <form
+                    onSubmit={
+                        envoyerSmsGroupe
+                    }
+                >
                     <div className="form-group">
-                        <label>Groupe</label>
+                        <label>
+                            Groupe
+                        </label>
 
                         <select
                             value={groupeSms}
                             onChange={(e) =>
-                                setGroupeSms(e.target.value)
+                                setGroupeSms(
+                                    e.target
+                                        .value
+                                )
                             }
                             required
                         >
                             <option value="">
-                                Sélectionner un groupe
+                                Sélectionner un
+                                groupe
                             </option>
 
-                            {groupes.map((groupe) => (
-                                <option
-                                    key={groupe.id}
-                                    value={groupe.id}
-                                >
-                                    {groupe.nom}
-                                </option>
-                            ))}
+                            {groupes.map(
+                                (groupe) => (
+                                    <option
+                                        key={
+                                            groupe.id
+                                        }
+                                        value={
+                                            groupe.id
+                                        }
+                                    >
+                                        {
+                                            groupe.nom
+                                        }
+                                    </option>
+                                )
+                            )}
                         </select>
                     </div>
 
                     <div className="form-group">
-                        <label>Message</label>
+                        <label>
+                            Message
+                        </label>
 
                         <textarea
-                            value={messageGroupe}
+                            value={
+                                messageGroupe
+                            }
                             onChange={(e) =>
-                                setMessageGroupe(e.target.value)
+                                setMessageGroupe(
+                                    e.target
+                                        .value
+                                )
                             }
                             rows="5"
                             placeholder="Message pour le groupe..."
@@ -753,17 +976,26 @@ return (
             </section>
 
             <section className="card">
-                <h2>Modèles SMS</h2>
+                <h2>
+                    Modèles SMS
+                </h2>
 
-                <form onSubmit={ajouterModele}>
+                <form
+                    onSubmit={ajouterModele}
+                >
                     <div className="form-group">
-                        <label>Nom du modèle</label>
+                        <label>
+                            Nom du modèle
+                        </label>
 
                         <input
                             type="text"
                             value={nomModele}
                             onChange={(e) =>
-                                setNomModele(e.target.value)
+                                setNomModele(
+                                    e.target
+                                        .value
+                                )
                             }
                             placeholder="Exemple : Rappel rendez-vous"
                             required
@@ -771,12 +1003,19 @@ return (
                     </div>
 
                     <div className="form-group">
-                        <label>Message</label>
+                        <label>
+                            Message
+                        </label>
 
                         <textarea
-                            value={messageModele}
+                            value={
+                                messageModele
+                            }
                             onChange={(e) =>
-                                setMessageModele(e.target.value)
+                                setMessageModele(
+                                    e.target
+                                        .value
+                                )
                             }
                             rows="4"
                             required
@@ -792,46 +1031,64 @@ return (
                 </form>
 
                 <div className="models-list">
-                    {modeles.map((modele) => (
-                        <div
-                            className="model-item"
-                            key={modele.id}
-                        >
-                            <strong>{modele.nom}</strong>
-
-                            <p>{modele.message}</p>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    utiliserModele(
-                                        modele.message
-                                    )
+                    {modeles.map(
+                        (modele) => (
+                            <div
+                                className="model-item"
+                                key={
+                                    modele.id
                                 }
                             >
-                                Utiliser ce modèle
-                            </button>
-                        </div>
-                    ))}
+                                <strong>
+                                    {
+                                        modele.nom
+                                    }
+                                </strong>
+
+                                <p>
+                                    {
+                                        modele.message
+                                    }
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        utiliserModele(
+                                            modele.message
+                                        )
+                                    }
+                                >
+                                    Utiliser ce
+                                    modèle
+                                </button>
+                            </div>
+                        )
+                    )}
                 </div>
             </section>
 
             <section className="card">
-                <h2>Historique des SMS</h2>
+                <h2>
+                    Historique des SMS
+                </h2>
 
                 <div className="table-container">
                     <table>
                         <thead>
                             <tr>
                                 <th>Date</th>
-                                <th>Téléphone</th>
+                                <th>
+                                    Téléphone
+                                </th>
                                 <th>Message</th>
                                 <th>Statut</th>
                             </tr>
                         </thead>
 
                         <tbody>
-                            {historique.length === 0 ? (
+                            {historique.length ===
+                            0 ? (
                                 <tr>
                                     <td colSpan="4">
                                         Aucun SMS dans
@@ -839,33 +1096,40 @@ return (
                                     </td>
                                 </tr>
                             ) : (
-                                historique.map((item) => (
-                                    <tr key={item.id}>
-                                        <td>
-                                            {item.created_at
-                                                ? new Date(
-                                                      item.created_at
-                                                  ).toLocaleString()
-                                                : "-"}
-                                        </td>
+                                historique.map(
+                                    (item) => (
+                                        <tr
+                                            key={
+                                                item.id
+                                            }
+                                        >
+                                            <td>
+                                                {item.created_at
+                                                    ? new Date(
+                                                          item.created_at
+                                                      ).toLocaleString()
+                                                    : "-"}
+                                            </td>
 
-                                        <td>
-                                            {item.telephone ||
-                                                item.phone ||
-                                                "-"}
-                                        </td>
+                                            <td>
+                                                {item.telephone ||
+                                                    item.phone ||
+                                                    "-"}
+                                            </td>
 
-                                        <td>
-                                            {item.message || "-"}
-                                        </td>
+                                            <td>
+                                                {item.message ||
+                                                    "-"}
+                                            </td>
 
-                                        <td>
-                                            {item.statut ||
-                                                item.status ||
-                                                "-"}
-                                        </td>
-                                    </tr>
-                                ))
+                                            <td>
+                                                {item.statut ||
+                                                    item.status ||
+                                                    "-"}
+                                            </td>
+                                        </tr>
+                                    )
+                                )
                             )}
                         </tbody>
                     </table>
