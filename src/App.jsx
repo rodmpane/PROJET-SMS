@@ -13,9 +13,7 @@ function App() {
     );
 
     const [utilisateur, setUtilisateur] = useState(() => {
-        const data =
-            localStorage.getItem("sms_utilisateur");
-
+        const data = localStorage.getItem("sms_utilisateur");
         return data ? JSON.parse(data) : null;
     });
 
@@ -30,24 +28,35 @@ function App() {
 
     const [chargement, setChargement] = useState(false);
 
-    const [messageErreur, setMessageErreur] =
-        useState("");
+    const [messageErreur, setMessageErreur] = useState("");
+
+    // ========================================
+    // DASHBOARD
+    // ========================================
+
+    const [dashboard, setDashboard] = useState({
+        clients: 0,
+        groupes: 0,
+        sms_total: 0,
+        sms_reussis: 0,
+        sms_echecs: 0
+    });
+
+    const [chargementDashboard, setChargementDashboard] =
+        useState(false);
 
     // ========================================
     // CONNEXION
     // ========================================
 
-    const [emailConnexion, setEmailConnexion] =
-        useState("");
-
+    const [emailConnexion, setEmailConnexion] = useState("");
     const [motDePasseConnexion, setMotDePasseConnexion] =
         useState("");
 
     const [chargementConnexion, setChargementConnexion] =
         useState(false);
 
-    const [erreurConnexion, setErreurConnexion] =
-        useState("");
+    const [erreurConnexion, setErreurConnexion] = useState("");
 
     // ========================================
     // CLIENT
@@ -71,16 +80,14 @@ function App() {
     // ========================================
 
     const [groupeSms, setGroupeSms] = useState("");
-    const [messageGroupe, setMessageGroupe] =
-        useState("");
+    const [messageGroupe, setMessageGroupe] = useState("");
 
     // ========================================
     // MODÈLE SMS
     // ========================================
 
     const [nomModele, setNomModele] = useState("");
-    const [messageModele, setMessageModele] =
-        useState("");
+    const [messageModele, setMessageModele] = useState("");
 
     // ========================================
     // FONCTION HEADERS JWT
@@ -92,8 +99,7 @@ function App() {
         };
 
         if (avecJson) {
-            headers["Content-Type"] =
-                "application/json";
+            headers["Content-Type"] = "application/json";
         }
 
         return headers;
@@ -103,18 +109,10 @@ function App() {
     // GESTION SESSION EXPIRÉE
     // ========================================
 
-    const gererErreurAuthentification = (
-        response
-    ) => {
+    const gererErreurAuthentification = (response) => {
         if (response.status === 401) {
-
-            localStorage.removeItem(
-                "sms_token"
-            );
-
-            localStorage.removeItem(
-                "sms_utilisateur"
-            );
+            localStorage.removeItem("sms_token");
+            localStorage.removeItem("sms_utilisateur");
 
             setToken(null);
             setUtilisateur(null);
@@ -123,6 +121,14 @@ function App() {
             setGroupes([]);
             setHistorique([]);
             setModeles([]);
+
+            setDashboard({
+                clients: 0,
+                groupes: 0,
+                sms_total: 0,
+                sms_reussis: 0,
+                sms_echecs: 0
+            });
 
             setMessageErreur(
                 "Votre session a expiré. Veuillez vous reconnecter."
@@ -145,56 +151,40 @@ function App() {
         setChargementConnexion(true);
 
         try {
-            const response = await fetch(
-                `${API_URL}/login`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-                    body: JSON.stringify({
-                        email: emailConnexion,
-                        mot_de_passe:
-                            motDePasseConnexion
-                    })
-                }
-            );
+            const response = await fetch(`${API_URL}/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: emailConnexion,
+                    mot_de_passe: motDePasseConnexion
+                })
+            });
 
             const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
-                    data.message ||
-                        "Erreur de connexion."
+                    data.message || "Erreur de connexion."
                 );
             }
 
-            localStorage.setItem(
-                "sms_token",
-                data.token
-            );
+            localStorage.setItem("sms_token", data.token);
 
             localStorage.setItem(
                 "sms_utilisateur",
-                JSON.stringify(
-                    data.utilisateur
-                )
+                JSON.stringify(data.utilisateur)
             );
 
             setToken(data.token);
-
-            setUtilisateur(
-                data.utilisateur
-            );
+            setUtilisateur(data.utilisateur);
 
             setEmailConnexion("");
             setMotDePasseConnexion("");
 
         } catch (error) {
-            setErreurConnexion(
-                error.message
-            );
+            setErreurConnexion(error.message);
         } finally {
             setChargementConnexion(false);
         }
@@ -205,14 +195,8 @@ function App() {
     // ========================================
 
     const seDeconnecter = () => {
-
-        localStorage.removeItem(
-            "sms_token"
-        );
-
-        localStorage.removeItem(
-            "sms_utilisateur"
-        );
+        localStorage.removeItem("sms_token");
+        localStorage.removeItem("sms_utilisateur");
 
         setToken(null);
         setUtilisateur(null);
@@ -221,6 +205,59 @@ function App() {
         setGroupes([]);
         setHistorique([]);
         setModeles([]);
+
+        setDashboard({
+            clients: 0,
+            groupes: 0,
+            sms_total: 0,
+            sms_reussis: 0,
+            sms_echecs: 0
+        });
+    };
+
+    // ========================================
+    // CHARGER DASHBOARD
+    // ========================================
+
+    const chargerDashboard = async () => {
+        try {
+            setChargementDashboard(true);
+
+            const response = await fetch(
+                `${API_URL}/dashboard`,
+                {
+                    headers: getHeaders()
+                }
+            );
+
+            if (
+                gererErreurAuthentification(response)
+            ) {
+                return;
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                        "Erreur chargement dashboard."
+                );
+            }
+
+            setDashboard(data);
+
+        } catch (error) {
+            console.error(
+                "Erreur dashboard :",
+                error
+            );
+
+            setMessageErreur(error.message);
+
+        } finally {
+            setChargementDashboard(false);
+        }
     };
 
     // ========================================
@@ -229,7 +266,6 @@ function App() {
 
     const chargerClients = async () => {
         try {
-
             const response = await fetch(
                 `${API_URL}/clients`,
                 {
@@ -238,35 +274,28 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
-                    data.message ||
-                        "Erreur clients."
+                    data.message || "Erreur clients."
                 );
             }
 
             setClients(data);
 
         } catch (error) {
-
             console.error(
                 "Erreur clients :",
                 error
             );
 
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -276,7 +305,6 @@ function App() {
 
     const chargerGroupes = async () => {
         try {
-
             const response = await fetch(
                 `${API_URL}/groupes`,
                 {
@@ -285,35 +313,28 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
-                    data.message ||
-                        "Erreur groupes."
+                    data.message || "Erreur groupes."
                 );
             }
 
             setGroupes(data);
 
         } catch (error) {
-
             console.error(
                 "Erreur groupes :",
                 error
             );
 
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -323,7 +344,6 @@ function App() {
 
     const chargerModeles = async () => {
         try {
-
             const response = await fetch(
                 `${API_URL}/modeles-sms`,
                 {
@@ -332,35 +352,28 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
-                    data.message ||
-                        "Erreur modèles."
+                    data.message || "Erreur modèles."
                 );
             }
 
             setModeles(data);
 
         } catch (error) {
-
             console.error(
                 "Erreur modèles :",
                 error
             );
 
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -370,7 +383,6 @@ function App() {
 
     const chargerHistorique = async () => {
         try {
-
             const response = await fetch(
                 `${API_URL}/historique`,
                 {
@@ -379,15 +391,12 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
@@ -399,15 +408,12 @@ function App() {
             setHistorique(data);
 
         } catch (error) {
-
             console.error(
                 "Erreur historique :",
                 error
             );
 
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -416,17 +422,16 @@ function App() {
     // ========================================
 
     useEffect(() => {
-
         if (!token) {
             setChargement(false);
             return;
         }
 
         const chargerDonnees = async () => {
-
             setChargement(true);
 
             await Promise.all([
+                chargerDashboard(),
                 chargerClients(),
                 chargerGroupes(),
                 chargerModeles(),
@@ -445,11 +450,9 @@ function App() {
     // ========================================
 
     const ajouterClient = async (e) => {
-
         e.preventDefault();
 
         try {
-
             const response = await fetch(
                 `${API_URL}/clients`,
                 {
@@ -461,24 +464,20 @@ function App() {
                         prenom,
                         telephone,
                         email,
-                        groupe_id:
-                            groupeId
-                                ? Number(groupeId)
-                                : null
+                        groupe_id: groupeId
+                            ? Number(groupeId)
+                            : null
                     })
                 }
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
@@ -494,12 +493,10 @@ function App() {
             setGroupeId("");
 
             await chargerClients();
+            await chargerDashboard();
 
         } catch (error) {
-
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -508,18 +505,15 @@ function App() {
     // ========================================
 
     const supprimerClient = async (id) => {
-
-        const confirmation =
-            window.confirm(
-                "Voulez-vous vraiment supprimer ce client ?"
-            );
+        const confirmation = window.confirm(
+            "Voulez-vous vraiment supprimer ce client ?"
+        );
 
         if (!confirmation) {
             return;
         }
 
         try {
-
             const response = await fetch(
                 `${API_URL}/clients/${id}`,
                 {
@@ -529,15 +523,12 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
                 throw new Error(
@@ -547,12 +538,10 @@ function App() {
             }
 
             await chargerClients();
+            await chargerDashboard();
 
         } catch (error) {
-
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -561,11 +550,9 @@ function App() {
     // ========================================
 
     const envoyerSms = async (e) => {
-
         e.preventDefault();
 
         if (!clientSms || !messageSms) {
-
             setMessageErreur(
                 "Sélectionnez un client et saisissez un message."
             );
@@ -574,13 +561,11 @@ function App() {
         }
 
         try {
-
-            const client =
-                clients.find(
-                    (c) =>
-                        String(c.id) ===
-                        String(clientSms)
-                );
+            const client = clients.find(
+                (c) =>
+                    String(c.id) ===
+                    String(clientSms)
+            );
 
             if (!client) {
                 throw new Error(
@@ -611,18 +596,14 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                         "Erreur envoi SMS."
@@ -637,12 +618,10 @@ function App() {
             setMessageSms("");
 
             await chargerHistorique();
+            await chargerDashboard();
 
         } catch (error) {
-
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -651,11 +630,9 @@ function App() {
     // ========================================
 
     const envoyerSmsGroupe = async (e) => {
-
         e.preventDefault();
 
         if (!groupeSms || !messageGroupe) {
-
             setMessageErreur(
                 "Sélectionnez un groupe et saisissez un message."
             );
@@ -664,7 +641,6 @@ function App() {
         }
 
         try {
-
             const response = await fetch(
                 `${API_URL}/sms/send-group`,
                 {
@@ -682,18 +658,14 @@ function App() {
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                         "Erreur envoi groupé."
@@ -712,12 +684,10 @@ Envoyés : ${data.envoyes}
             setMessageGroupe("");
 
             await chargerHistorique();
+            await chargerDashboard();
 
         } catch (error) {
-
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -726,11 +696,9 @@ Envoyés : ${data.envoyes}
     // ========================================
 
     const ajouterModele = async (e) => {
-
         e.preventDefault();
 
         if (!nomModele || !messageModele) {
-
             setMessageErreur(
                 "Nom et message obligatoires."
             );
@@ -739,7 +707,6 @@ Envoyés : ${data.envoyes}
         }
 
         try {
-
             const response = await fetch(
                 `${API_URL}/modeles-sms`,
                 {
@@ -748,25 +715,20 @@ Envoyés : ${data.envoyes}
 
                     body: JSON.stringify({
                         nom: nomModele,
-                        message:
-                            messageModele
+                        message: messageModele
                     })
                 }
             );
 
             if (
-                gererErreurAuthentification(
-                    response
-                )
+                gererErreurAuthentification(response)
             ) {
                 return;
             }
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
             if (!response.ok) {
-
                 throw new Error(
                     data.message ||
                         "Erreur ajout modèle."
@@ -779,10 +741,7 @@ Envoyés : ${data.envoyes}
             await chargerModeles();
 
         } catch (error) {
-
-            setMessageErreur(
-                error.message
-            );
+            setMessageErreur(error.message);
         }
     };
 
@@ -791,7 +750,6 @@ Envoyés : ${data.envoyes}
     // ========================================
 
     const utiliserModele = (message) => {
-
         setMessageSms(message);
         setMessageGroupe(message);
     };
@@ -801,7 +759,6 @@ Envoyés : ${data.envoyes}
     // ========================================
 
     if (!token) {
-
         return (
             <div className="app-container">
 
@@ -828,9 +785,7 @@ Envoyés : ${data.envoyes}
                         )}
 
                         <form
-                            onSubmit={
-                                seConnecter
-                            }
+                            onSubmit={seConnecter}
                         >
 
                             <div>
@@ -903,7 +858,6 @@ Envoyés : ${data.envoyes}
     // ========================================
 
     if (chargement) {
-
         return (
             <div className="app-container">
 
@@ -922,9 +876,9 @@ Envoyés : ${data.envoyes}
     return (
         <div className="app-container">
 
-            {/* ================================= */}
-            {/* EN-TÊTE */}
-            {/* ================================= */}
+            {/* ========================================
+                EN-TÊTE
+            ======================================== */}
 
             <header className="app-header">
 
@@ -960,12 +914,11 @@ Envoyés : ${data.envoyes}
 
             </header>
 
-            {/* ================================= */}
-            {/* MESSAGE ERREUR */}
-            {/* ================================= */}
+            {/* ========================================
+                MESSAGE ERREUR
+            ======================================== */}
 
             {messageErreur && (
-
                 <div className="message-erreur">
 
                     {messageErreur}
@@ -982,9 +935,151 @@ Envoyés : ${data.envoyes}
                 </div>
             )}
 
-            {/* ================================= */}
-            {/* CLIENTS */}
-            {/* ================================= */}
+            {/* ========================================
+                DASHBOARD
+            ======================================== */}
+
+            <section className="dashboard-section">
+
+                <div className="dashboard-header">
+
+                    <div>
+
+                        <h2>
+                            📊 Tableau de bord
+                        </h2>
+
+                        <p>
+                            Vue générale de votre activité SMS
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={
+                            chargerDashboard
+                        }
+                        disabled={
+                            chargementDashboard
+                        }
+                    >
+                        {chargementDashboard
+                            ? "Actualisation..."
+                            : "🔄 Actualiser"}
+                    </button>
+
+                </div>
+
+                <div className="dashboard-cards">
+
+                    <div className="dashboard-card">
+
+                        <div className="dashboard-card-icon">
+                            👥
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                Clients
+                            </h3>
+
+                            <strong>
+                                {dashboard.clients}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div className="dashboard-card">
+
+                        <div className="dashboard-card-icon">
+                            📁
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                Groupes
+                            </h3>
+
+                            <strong>
+                                {dashboard.groupes}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div className="dashboard-card">
+
+                        <div className="dashboard-card-icon">
+                            📱
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                SMS total
+                            </h3>
+
+                            <strong>
+                                {dashboard.sms_total}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div className="dashboard-card">
+
+                        <div className="dashboard-card-icon">
+                            ✅
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                SMS envoyés
+                            </h3>
+
+                            <strong>
+                                {dashboard.sms_reussis}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div className="dashboard-card">
+
+                        <div className="dashboard-card-icon">
+                            ❌
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                SMS échoués
+                            </h3>
+
+                            <strong>
+                                {dashboard.sms_echecs}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            {/* ========================================
+                CLIENTS
+            ======================================== */}
 
             <section>
 
@@ -993,9 +1088,7 @@ Envoyés : ${data.envoyes}
                 </h2>
 
                 <form
-                    onSubmit={
-                        ajouterClient
-                    }
+                    onSubmit={ajouterClient}
                 >
 
                     <input
@@ -1059,7 +1152,6 @@ Envoyés : ${data.envoyes}
 
                         {groupes.map(
                             (groupe) => (
-
                                 <option
                                     key={
                                         groupe.id
@@ -1072,7 +1164,6 @@ Envoyés : ${data.envoyes}
                                         groupe.nom
                                     }
                                 </option>
-
                             )
                         )}
 
@@ -1124,7 +1215,6 @@ Envoyés : ${data.envoyes}
 
                             {clients.map(
                                 (client) => (
-
                                     <tr
                                         key={
                                             client.id
@@ -1178,7 +1268,6 @@ Envoyés : ${data.envoyes}
                                         </td>
 
                                     </tr>
-
                                 )
                             )}
 
@@ -1190,9 +1279,9 @@ Envoyés : ${data.envoyes}
 
             </section>
 
-            {/* ================================= */}
-            {/* SMS INDIVIDUEL */}
-            {/* ================================= */}
+            {/* ========================================
+                SMS INDIVIDUEL
+            ======================================== */}
 
             <section>
 
@@ -1201,9 +1290,7 @@ Envoyés : ${data.envoyes}
                 </h2>
 
                 <form
-                    onSubmit={
-                        envoyerSms
-                    }
+                    onSubmit={envoyerSms}
                 >
 
                     <select
@@ -1222,7 +1309,6 @@ Envoyés : ${data.envoyes}
 
                         {clients.map(
                             (client) => (
-
                                 <option
                                     key={
                                         client.id
@@ -1238,7 +1324,6 @@ Envoyés : ${data.envoyes}
                                         client.telephone
                                     }
                                 </option>
-
                             )
                         )}
 
@@ -1264,9 +1349,9 @@ Envoyés : ${data.envoyes}
 
             </section>
 
-            {/* ================================= */}
-            {/* SMS GROUPE */}
-            {/* ================================= */}
+            {/* ========================================
+                SMS GROUPE
+            ======================================== */}
 
             <section>
 
@@ -1296,7 +1381,6 @@ Envoyés : ${data.envoyes}
 
                         {groupes.map(
                             (groupe) => (
-
                                 <option
                                     key={
                                         groupe.id
@@ -1309,7 +1393,6 @@ Envoyés : ${data.envoyes}
                                         groupe.nom
                                     }
                                 </option>
-
                             )
                         )}
 
@@ -1337,9 +1420,9 @@ Envoyés : ${data.envoyes}
 
             </section>
 
-            {/* ================================= */}
-            {/* MODÈLES SMS */}
-            {/* ================================= */}
+            {/* ========================================
+                MODÈLES SMS
+            ======================================== */}
 
             <section>
 
@@ -1429,9 +1512,9 @@ Envoyés : ${data.envoyes}
 
             </section>
 
-            {/* ================================= */}
-            {/* HISTORIQUE */}
-            {/* ================================= */}
+            {/* ========================================
+                HISTORIQUE
+            ======================================== */}
 
             <section>
 
