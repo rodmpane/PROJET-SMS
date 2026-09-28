@@ -58,13 +58,21 @@ function App() {
             }
         });
 
-        const data = await response.json();
+        let data = {};
+
+        try {
+            data = await response.json();
+        } catch {
+            data = {};
+        }
 
         if (response.status === 401) {
             localStorage.removeItem("sms_token");
             localStorage.removeItem("sms_utilisateur");
+
             setToken("");
             setUtilisateur(null);
+
             throw new Error("Session expirée.");
         }
 
@@ -142,24 +150,48 @@ function App() {
 
     async function chargerDonnees() {
         try {
-            const [
-                clientsData,
-                groupesData,
-                historiqueData,
-                modelesData
-            ] = await Promise.all([
-                api("/clients"),
-                api("/groupes"),
-                api("/historique"),
-                api("/modeles-sms")
-            ]);
+            const clientsData =
+                await api("/clients");
 
-            setClients(clientsData);
-            setGroupes(groupesData);
-            setHistorique(historiqueData);
-            setModeles(modelesData);
+            const groupesData =
+                await api("/groupes");
+
+            const historiqueData =
+                await api("/historique");
+
+            const modelesData =
+                await api("/modeles-sms");
+
+            setClients(
+                Array.isArray(clientsData)
+                    ? clientsData
+                    : []
+            );
+
+            setGroupes(
+                Array.isArray(groupesData)
+                    ? groupesData
+                    : []
+            );
+
+            setHistorique(
+                Array.isArray(historiqueData)
+                    ? historiqueData
+                    : []
+            );
+
+            setModeles(
+                Array.isArray(modelesData)
+                    ? modelesData
+                    : []
+            );
 
         } catch (error) {
+            console.error(
+                "Erreur chargement des données :",
+                error
+            );
+
             setMessage(error.message);
         }
     }
@@ -177,9 +209,9 @@ function App() {
             await api("/clients", {
                 method: "POST",
                 body: JSON.stringify({
-                    nom,
-                    prenom,
-                    telephone,
+                    nom: nom,
+                    prenom: prenom,
+                    telephone: telephone,
                     email: emailClient,
                     groupeId: groupeId
                         ? Number(groupeId)
@@ -193,7 +225,9 @@ function App() {
             setEmailClient("");
             setGroupeId("");
 
-            setMessage("Client ajouté avec succès.");
+            setMessage(
+                "Client ajouté avec succès."
+            );
 
             await chargerDonnees();
 
@@ -203,16 +237,24 @@ function App() {
     }
 
     async function supprimerClient(id) {
-        if (!window.confirm("Supprimer ce client ?")) {
+        if (
+            !window.confirm(
+                "Supprimer ce client ?"
+            )
+        ) {
             return;
         }
 
         try {
-            await api("/clients/" + id, {
-                method: "DELETE"
-            });
+            await api(
+                "/clients/" + id,
+                {
+                    method: "DELETE"
+                }
+            );
 
             setMessage("Client supprimé.");
+
             await chargerDonnees();
 
         } catch (error) {
@@ -235,7 +277,9 @@ function App() {
             setNomGroupe("");
             setDescriptionGroupe("");
 
-            setMessage("Groupe ajouté avec succès.");
+            setMessage(
+                "Groupe ajouté avec succès."
+            );
 
             await chargerDonnees();
 
@@ -248,13 +292,16 @@ function App() {
         e.preventDefault();
 
         try {
-            const data = await api("/sms/send", {
-                method: "POST",
-                body: JSON.stringify({
-                    telephone: clientSms,
-                    message: messageSms
-                })
-            });
+            const data = await api(
+                "/sms/send",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        telephone: clientSms,
+                        message: messageSms
+                    })
+                }
+            );
 
             setMessage(
                 data.message ||
@@ -274,6 +321,13 @@ function App() {
     async function envoyerSmsGroupe(e) {
         e.preventDefault();
 
+        if (!groupeSms) {
+            setMessage(
+                "Veuillez sélectionner un groupe."
+            );
+            return;
+        }
+
         try {
             const data = await api(
                 "/sms/send-group",
@@ -292,6 +346,7 @@ function App() {
             );
 
             setMessageGroupe("");
+            setGroupeSms("");
 
             await chargerDonnees();
 
@@ -304,13 +359,16 @@ function App() {
         e.preventDefault();
 
         try {
-            await api("/modeles-sms", {
-                method: "POST",
-                body: JSON.stringify({
-                    nom: nomModele,
-                    message: messageModele
-                })
-            });
+            await api(
+                "/modeles-sms",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        nom: nomModele,
+                        message: messageModele
+                    })
+                }
+            );
 
             setNomModele("");
             setMessageModele("");
@@ -336,6 +394,7 @@ function App() {
             <div className="app">
                 <div className="login-container">
                     <div className="login-box">
+
                         <h1>SMS Clients</h1>
 
                         <h2>
@@ -396,6 +455,7 @@ function App() {
                                     : "Se connecter"}
                             </button>
                         </form>
+
                     </div>
                 </div>
             </div>
@@ -406,8 +466,12 @@ function App() {
         <div className="app">
 
             <header className="topbar">
+
                 <div>
-                    <h1>SMS Clients</h1>
+                    <h1>
+                        SMS Clients
+                    </h1>
+
                     <p>
                         Gestion et envoi de SMS
                     </p>
@@ -420,11 +484,15 @@ function App() {
                     </span>
 
                     <button
-                        onClick={seDeconnecter}
+                        type="button"
+                        onClick={
+                            seDeconnecter
+                        }
                     >
                         Déconnexion
                     </button>
                 </div>
+
             </header>
 
             <main className="dashboard">
@@ -436,16 +504,22 @@ function App() {
                 )}
 
                 <section>
-                    <h2>Clients</h2>
+
+                    <h2>
+                        Clients
+                    </h2>
 
                     <form
                         onSubmit={ajouterClient}
                         className="card"
                     >
+
                         <input
                             value={nom}
                             onChange={(e) =>
-                                setNom(e.target.value)
+                                setNom(
+                                    e.target.value
+                                )
                             }
                             placeholder="Nom"
                             required
@@ -454,7 +528,9 @@ function App() {
                         <input
                             value={prenom}
                             onChange={(e) =>
-                                setPrenom(e.target.value)
+                                setPrenom(
+                                    e.target.value
+                                )
                             }
                             placeholder="Prénom"
                         />
@@ -489,6 +565,7 @@ function App() {
                                 )
                             }
                         >
+
                             <option value="">
                                 Sans groupe
                             </option>
@@ -496,21 +573,30 @@ function App() {
                             {groupes.map(
                                 (groupe) => (
                                     <option
-                                        key={groupe.id}
-                                        value={groupe.id}
+                                        key={
+                                            groupe.id
+                                        }
+                                        value={
+                                            groupe.id
+                                        }
                                     >
                                         {groupe.nom}
                                     </option>
                                 )
                             )}
+
                         </select>
 
-                        <button type="submit">
+                        <button
+                            type="submit"
+                        >
                             Ajouter le client
                         </button>
+
                     </form>
 
                     <div className="card">
+
                         <h3>
                             Liste des clients
                         </h3>
@@ -521,17 +607,21 @@ function App() {
                             </p>
                         ) : (
                             <table>
+
                                 <thead>
                                     <tr>
                                         <th>
                                             Nom
                                         </th>
+
                                         <th>
                                             Téléphone
                                         </th>
+
                                         <th>
                                             Groupe
                                         </th>
+
                                         <th>
                                             Action
                                         </th>
@@ -539,6 +629,7 @@ function App() {
                                 </thead>
 
                                 <tbody>
+
                                     {clients.map(
                                         (client) => (
                                             <tr
@@ -546,9 +637,12 @@ function App() {
                                                     client.id
                                                 }
                                             >
+
                                                 <td>
                                                     {client.nom}{" "}
-                                                    {client.prenom}
+                                                    {
+                                                        client.prenom
+                                                    }
                                                 </td>
 
                                                 <td>
@@ -559,13 +653,14 @@ function App() {
 
                                                 <td>
                                                     {
-                                                        client.groupe_nom
-                                                    ||
-                                                        "Sans groupe"}
+                                                        client.groupe_nom ||
+                                                        "Sans groupe"
+                                                    }
                                                 </td>
 
                                                 <td>
                                                     <button
+                                                        type="button"
                                                         onClick={() =>
                                                             supprimerClient(
                                                                 client.id
@@ -575,22 +670,31 @@ function App() {
                                                         Supprimer
                                                     </button>
                                                 </td>
+
                                             </tr>
                                         )
                                     )}
+
                                 </tbody>
+
                             </table>
                         )}
+
                     </div>
+
                 </section>
 
                 <section>
-                    <h2>Groupes</h2>
+
+                    <h2>
+                        Groupes
+                    </h2>
 
                     <form
                         onSubmit={ajouterGroupe}
                         className="card"
                     >
+
                         <input
                             value={nomGroupe}
                             onChange={(e) =>
@@ -603,7 +707,9 @@ function App() {
                         />
 
                         <input
-                            value={descriptionGroupe}
+                            value={
+                                descriptionGroupe
+                            }
                             onChange={(e) =>
                                 setDescriptionGroupe(
                                     e.target.value
@@ -612,18 +718,23 @@ function App() {
                             placeholder="Description"
                         />
 
-                        <button type="submit">
+                        <button
+                            type="submit"
+                        >
                             Ajouter le groupe
                         </button>
+
                     </form>
 
                     <div className="card">
+
                         {groupes.length === 0 ? (
                             <p>
                                 Aucun groupe.
                             </p>
                         ) : (
                             <ul>
+
                                 {groupes.map(
                                     (groupe) => (
                                         <li
@@ -645,18 +756,25 @@ function App() {
                                         </li>
                                     )
                                 )}
+
                             </ul>
                         )}
+
                     </div>
+
                 </section>
 
                 <section>
-                    <h2>SMS individuel</h2>
+
+                    <h2>
+                        SMS individuel
+                    </h2>
 
                     <form
                         onSubmit={envoyerSms}
                         className="card"
                     >
+
                         <input
                             value={clientSms}
                             onChange={(e) =>
@@ -679,19 +797,29 @@ function App() {
                             required
                         />
 
-                        <button type="submit">
+                        <button
+                            type="submit"
+                        >
                             Envoyer le SMS
                         </button>
+
                     </form>
+
                 </section>
 
                 <section>
-                    <h2>SMS groupe</h2>
+
+                    <h2>
+                        SMS groupe
+                    </h2>
 
                     <form
-                        onSubmit={envoyerSmsGroupe}
+                        onSubmit={
+                            envoyerSmsGroupe
+                        }
                         className="card"
                     >
+
                         <select
                             value={groupeSms}
                             onChange={(e) =>
@@ -701,6 +829,7 @@ function App() {
                             }
                             required
                         >
+
                             <option value="">
                                 Sélectionner un groupe
                             </option>
@@ -708,17 +837,24 @@ function App() {
                             {groupes.map(
                                 (groupe) => (
                                     <option
-                                        key={groupe.id}
-                                        value={groupe.id}
+                                        key={
+                                            groupe.id
+                                        }
+                                        value={
+                                            groupe.id
+                                        }
                                     >
                                         {groupe.nom}
                                     </option>
                                 )
                             )}
+
                         </select>
 
                         <textarea
-                            value={messageGroupe}
+                            value={
+                                messageGroupe
+                            }
                             onChange={(e) =>
                                 setMessageGroupe(
                                     e.target.value
@@ -728,19 +864,29 @@ function App() {
                             required
                         />
 
-                        <button type="submit">
+                        <button
+                            type="submit"
+                        >
                             Envoyer au groupe
                         </button>
+
                     </form>
+
                 </section>
 
                 <section>
-                    <h2>Modèles SMS</h2>
+
+                    <h2>
+                        Modèles SMS
+                    </h2>
 
                     <form
-                        onSubmit={ajouterModele}
+                        onSubmit={
+                            ajouterModele
+                        }
                         className="card"
                     >
+
                         <input
                             value={nomModele}
                             onChange={(e) =>
@@ -753,7 +899,9 @@ function App() {
                         />
 
                         <textarea
-                            value={messageModele}
+                            value={
+                                messageModele
+                            }
                             onChange={(e) =>
                                 setMessageModele(
                                     e.target.value
@@ -763,18 +911,23 @@ function App() {
                             required
                         />
 
-                        <button type="submit">
+                        <button
+                            type="submit"
+                        >
                             Ajouter le modèle
                         </button>
+
                     </form>
 
                     <div className="card">
+
                         {modeles.length === 0 ? (
                             <p>
                                 Aucun modèle.
                             </p>
                         ) : (
                             <ul>
+
                                 {modeles.map(
                                     (modele) => (
                                         <li
@@ -782,6 +935,7 @@ function App() {
                                                 modele.id
                                             }
                                         >
+
                                             <strong>
                                                 {
                                                     modele.nom
@@ -795,6 +949,7 @@ function App() {
                                             </p>
 
                                             <button
+                                                type="button"
                                                 onClick={() =>
                                                     utiliserModele(
                                                         modele.message
@@ -803,20 +958,26 @@ function App() {
                                             >
                                                 Utiliser
                                             </button>
+
                                         </li>
                                     )
                                 )}
+
                             </ul>
                         )}
+
                     </div>
+
                 </section>
 
                 <section>
+
                     <h2>
                         Historique SMS
                     </h2>
 
                     <div className="card">
+
                         {historique.length === 0 ? (
                             <p>
                                 Aucun SMS dans
@@ -824,17 +985,21 @@ function App() {
                             </p>
                         ) : (
                             <table>
+
                                 <thead>
                                     <tr>
                                         <th>
                                             Téléphone
                                         </th>
+
                                         <th>
                                             Message
                                         </th>
+
                                         <th>
                                             Statut
                                         </th>
+
                                         <th>
                                             Date
                                         </th>
@@ -842,6 +1007,7 @@ function App() {
                                 </thead>
 
                                 <tbody>
+
                                     {historique.map(
                                         (sms) => (
                                             <tr
@@ -849,6 +1015,7 @@ function App() {
                                                     sms.id
                                                 }
                                             >
+
                                                 <td>
                                                     {
                                                         sms.telephone
@@ -872,16 +1039,22 @@ function App() {
                                                         sms.date_envoi
                                                     }
                                                 </td>
+
                                             </tr>
                                         )
                                     )}
+
                                 </tbody>
+
                             </table>
                         )}
+
                     </div>
+
                 </section>
 
             </main>
+
         </div>
     );
 }
