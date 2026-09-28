@@ -11,12 +11,7 @@ import bcrypt from "bcrypt";
 
 dotenv.config();
 
-// ========================================
-// VARIABLES D'ENVIRONNEMENT
-// ========================================
-
 const PORT = process.env.PORT || 5000;
-
 const JWT_SECRET = process.env.JWT_SECRET;
 const ESMS_API_KEY = process.env.ESMS_API_KEY;
 const ESMS_SENDER_ID = process.env.ESMS_SENDER_ID;
@@ -36,19 +31,9 @@ if (!ESMS_SENDER_ID) {
     process.exit(1);
 }
 
-// ========================================
-// APPLICATION
-// ========================================
-
 const app = express();
 
-// IMPORTANT POUR RENDER
 app.set("trust proxy", 1);
-
-// ========================================
-// SÉCURITÉ
-// ========================================
-
 app.disable("x-powered-by");
 
 app.use(
@@ -56,10 +41,6 @@ app.use(
         crossOriginResourcePolicy: false
     })
 );
-
-// ========================================
-// CORS
-// ========================================
 
 const originesAutorisees = [
     "http://localhost:5173",
@@ -110,66 +91,45 @@ app.use(
     })
 );
 
-// ========================================
-// JSON
-// ========================================
-
 app.use(
     express.json({
         limit: "100kb"
     })
 );
 
-// ========================================
-// RATE LIMIT GLOBAL
-// ========================================
-
 const limiteGenerale = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
-        message: "Trop de requêtes. Veuillez réessayer plus tard."
+        message:
+            "Trop de requêtes. Veuillez réessayer plus tard."
     }
 });
 
 app.use(limiteGenerale);
-
-// ========================================
-// RATE LIMIT CONNEXION
-// ========================================
 
 const limiteLogin = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
         message: "Trop de tentatives de connexion."
     }
 });
-
-// ========================================
-// RATE LIMIT SMS
-// ========================================
 
 const limiteSMS = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 50,
     standardHeaders: true,
     legacyHeaders: false,
-
     message: {
-        message: "Trop d'envois SMS. Veuillez patienter."
+        message:
+            "Trop d'envois SMS. Veuillez patienter."
     }
 });
-
-// ========================================
-// BASE DE DONNÉES
-// ========================================
 
 const pool = new Pool({
     host: process.env.DB_HOST,
@@ -191,10 +151,6 @@ pool.on("error", (error) => {
     );
 });
 
-// ========================================
-// TEST BASE DE DONNÉES
-// ========================================
-
 pool.query("SELECT NOW()")
     .then(() => {
         console.log("Connexion PostgreSQL réussie.");
@@ -205,10 +161,6 @@ pool.query("SELECT NOW()")
             error.message
         );
     });
-
-// ========================================
-// FONCTION VALIDATION
-// ========================================
 
 function verifierValidation(req, res, next) {
     const erreurs = validationResult(req);
@@ -222,10 +174,6 @@ function verifierValidation(req, res, next) {
 
     next();
 }
-
-// ========================================
-// FONCTION AUTHENTIFICATION JWT
-// ========================================
 
 function authentifier(req, res, next) {
     const authorization = req.headers.authorization;
@@ -252,24 +200,18 @@ function authentifier(req, res, next) {
         next();
     } catch (error) {
         return res.status(401).json({
-            message: "Session expirée ou token invalide."
+            message:
+                "Session expirée ou token invalide."
         });
     }
 }
 
-// ========================================
-// ROUTE PRINCIPALE
-// ========================================
-
 app.get("/", (req, res) => {
     res.json({
-        message: "Serveur SMS Clients opérationnel"
+        message:
+            "Serveur SMS Clients opérationnel"
     });
 });
-
-// ========================================
-// HEALTH CHECK
-// ========================================
 
 app.get("/health", async (req, res) => {
     try {
@@ -292,26 +234,29 @@ app.get("/health", async (req, res) => {
     }
 });
 
-// ========================================
-// CONNEXION ADMINISTRATEUR
-// ========================================
+/* ========================================
+   CONNEXION ADMINISTRATEUR
+   ======================================== */
 
 app.post(
     "/login",
-
     limiteLogin,
 
     [
         body("email")
             .trim()
             .isEmail()
-            .withMessage("Adresse email invalide.")
+            .withMessage(
+                "Adresse email invalide."
+            )
             .normalizeEmail(),
 
         body("password")
             .isString()
             .isLength({ min: 1 })
-            .withMessage("Mot de passe requis.")
+            .withMessage(
+                "Mot de passe requis."
+            )
     ],
 
     verifierValidation,
@@ -323,15 +268,20 @@ app.post(
                 password
             } = req.body;
 
-            const resultat = await pool.query(
-                `
-                SELECT id, nom, email, password
-                FROM users
-                WHERE email = $1
-                LIMIT 1
-                `,
-                [email]
-            );
+            const resultat =
+                await pool.query(
+                    `
+                    SELECT
+                        id,
+                        nom,
+                        email,
+                        mot_de_passe
+                    FROM users
+                    WHERE email = $1
+                    LIMIT 1
+                    `,
+                    [email]
+                );
 
             if (resultat.rows.length === 0) {
                 return res.status(401).json({
@@ -340,12 +290,13 @@ app.post(
                 });
             }
 
-            const utilisateur = resultat.rows[0];
+            const utilisateur =
+                resultat.rows[0];
 
             const motDePasseCorrect =
                 await bcrypt.compare(
                     password,
-                    utilisateur.password
+                    utilisateur.mot_de_passe
                 );
 
             if (!motDePasseCorrect) {
@@ -369,8 +320,9 @@ app.post(
                 }
             );
 
-            res.json({
-                message: "Connexion réussie.",
+            return res.json({
+                message:
+                    "Connexion réussie.",
 
                 token,
 
@@ -387,7 +339,7 @@ app.post(
                 error.message
             );
 
-            res.status(500).json({
+            return res.status(500).json({
                 message:
                     "Erreur interne du serveur."
             });
@@ -395,14 +347,13 @@ app.post(
     }
 );
 
-// ========================================
-// DASHBOARD
-// ========================================
+/* ========================================
+   DASHBOARD
+   ======================================== */
 
 app.get(
     "/dashboard",
     authentifier,
-
     async (req, res) => {
         try {
             const clients =
@@ -457,14 +408,13 @@ app.get(
     }
 );
 
-// ========================================
-// CLIENTS - LISTE
-// ========================================
+/* ========================================
+   CLIENTS - LISTE
+   ======================================== */
 
 app.get(
     "/clients",
     authentifier,
-
     async (req, res) => {
         try {
             const resultat =
@@ -501,9 +451,9 @@ app.get(
     }
 );
 
-// ========================================
-// CLIENT - AJOUT
-// ========================================
+/* ========================================
+   CLIENT - AJOUT
+   ======================================== */
 
 app.post(
     "/clients",
@@ -529,18 +479,24 @@ app.post(
                 min: 6,
                 max: 30
             })
-            .withMessage("Téléphone invalide."),
+            .withMessage(
+                "Téléphone invalide."
+            ),
 
         body("email")
             .optional({ nullable: true })
             .trim()
             .isEmail()
-            .withMessage("Email invalide."),
+            .withMessage(
+                "Email invalide."
+            ),
 
         body("groupeId")
             .optional({ nullable: true })
             .isInt()
-            .withMessage("Groupe invalide.")
+            .withMessage(
+                "Groupe invalide."
+            )
     ],
 
     verifierValidation,
@@ -596,9 +552,9 @@ app.post(
     }
 );
 
-// ========================================
-// CLIENT - SUPPRESSION
-// ========================================
+/* ========================================
+   CLIENT - SUPPRESSION
+   ======================================== */
 
 app.delete(
     "/clients/:id",
@@ -607,7 +563,9 @@ app.delete(
     [
         param("id")
             .isInt()
-            .withMessage("ID client invalide.")
+            .withMessage(
+                "ID client invalide."
+            )
     ],
 
     verifierValidation,
@@ -650,14 +608,13 @@ app.delete(
     }
 );
 
-// ========================================
-// GROUPES - LISTE
-// ========================================
+/* ========================================
+   GROUPES - LISTE
+   ======================================== */
 
 app.get(
     "/groupes",
     authentifier,
-
     async (req, res) => {
         try {
             const resultat =
@@ -688,9 +645,9 @@ app.get(
     }
 );
 
-// ========================================
-// GROUPES - AJOUT
-// ========================================
+/* ========================================
+   GROUPES - AJOUT
+   ======================================== */
 
 app.post(
     "/groupes",
@@ -757,14 +714,13 @@ app.post(
     }
 );
 
-// ========================================
-// MODÈLES SMS - LISTE
-// ========================================
+/* ========================================
+   MODÈLES SMS - LISTE
+   ======================================== */
 
 app.get(
     "/modeles-sms",
     authentifier,
-
     async (req, res) => {
         try {
             const resultat =
@@ -795,9 +751,9 @@ app.get(
     }
 );
 
-// ========================================
-// MODÈLE SMS - AJOUT
-// ========================================
+/* ========================================
+   MODÈLE SMS - AJOUT
+   ======================================== */
 
 app.post(
     "/modeles-sms",
@@ -869,9 +825,9 @@ app.post(
     }
 );
 
-// ========================================
-// ENVOI SMS INDIVIDUEL
-// ========================================
+/* ========================================
+   ENVOI SMS INDIVIDUEL
+   ======================================== */
 
 app.post(
     "/sms/send",
@@ -916,13 +872,15 @@ app.post(
                     {
                         to: telephone,
                         text: message,
-                        sender_id: ESMS_SENDER_ID
+                        sender_id:
+                            ESMS_SENDER_ID
                     },
 
                     {
                         headers: {
                             Authorization:
-                                `Bearer ${ESMS_API_KEY}`,
+                                "Bearer " +
+                                ESMS_API_KEY,
 
                             "Content-Type":
                                 "application/json"
@@ -1002,9 +960,9 @@ app.post(
     }
 );
 
-// ========================================
-// ENVOI SMS À UN GROUPE
-// ========================================
+/* ========================================
+   ENVOI SMS À UN GROUPE
+   ======================================== */
 
 app.post(
     "/sms/send-group",
@@ -1076,7 +1034,8 @@ app.post(
                         {
                             headers: {
                                 Authorization:
-                                    `Bearer ${ESMS_API_KEY}`,
+                                    "Bearer " +
+                                    ESMS_API_KEY,
 
                                 "Content-Type":
                                     "application/json"
@@ -1153,14 +1112,13 @@ app.post(
     }
 );
 
-// ========================================
-// HISTORIQUE SMS
-// ========================================
+/* ========================================
+   HISTORIQUE SMS
+   ======================================== */
 
 app.get(
     "/historique",
     authentifier,
-
     async (req, res) => {
         try {
             const resultat =
@@ -1193,9 +1151,9 @@ app.get(
     }
 );
 
-// ========================================
-// GESTION DES ERREURS CORS
-// ========================================
+/* ========================================
+   GESTION DES ERREURS CORS
+   ======================================== */
 
 app.use(
     (error, req, res, next) => {
@@ -1214,9 +1172,9 @@ app.use(
     }
 );
 
-// ========================================
-// ERREUR 404
-// ========================================
+/* ========================================
+   ERREUR 404
+   ======================================== */
 
 app.use(
     (req, res) => {
@@ -1227,9 +1185,9 @@ app.use(
     }
 );
 
-// ========================================
-// ERREUR SERVEUR
-// ========================================
+/* ========================================
+   ERREUR SERVEUR
+   ======================================== */
 
 app.use(
     (error, req, res, next) => {
@@ -1245,22 +1203,23 @@ app.use(
     }
 );
 
-// ========================================
-// DÉMARRAGE SERVEUR
-// ========================================
+/* ========================================
+   DÉMARRAGE SERVEUR
+   ======================================== */
 
 app.listen(
     PORT,
     "0.0.0.0",
     () => {
         console.log(
-            `Serveur SMS Clients démarré sur le port ${PORT}`
+            "Serveur SMS Clients démarré sur le port " +
+            PORT
         );
 
         console.log(
-            `Environnement : ${
-                process.env.NODE_ENV || "development"
-            }`
+            "Environnement : " +
+            (process.env.NODE_ENV ||
+                "development")
         );
     }
 );
