@@ -19,7 +19,17 @@
     dialog{border:0;border-radius:16px;width:min(94vw,640px);padding:24px;box-shadow:0 20px 70px #102b4860;color:#173858}
     dialog::backdrop{background:#0c294bbb}
     dialog h2{font-size:22px;margin:0 0 14px;color:#1361ad}
-    .viewer{width:100%;max-height:70vh;object-fit:contain;border:1px solid #d2dce9}
+    .profile{border-radius:10px;overflow:hidden;background:#fff;border:1px solid #d8e4f0}
+    .profiletop{background:#2c70b7;color:white;padding:32px 15px 28px;text-align:center}
+    .avatar{width:112px;height:112px;border-radius:50%;background:white;margin:0 auto 21px;position:relative;border:4px solid #bad8f4}
+    .avatar::before{content:"";position:absolute;width:30px;height:30px;border-radius:50%;background:#aeb5bd;top:24px;left:37px}
+    .avatar::after{content:"";position:absolute;width:63px;height:29px;border-radius:45px 45px 0 0;background:#aeb5bd;bottom:20px;left:20px}
+    .profiletop h3{font-size:clamp(17px,3.8vw,24px);margin:0;font-weight:900}
+    .details{padding:18px 22px}
+    .detail{display:grid;grid-template-columns:minmax(130px,43%) 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #edf0f4}
+    .detail:last-child{border:0}
+    .detail span{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#647181}
+    .detail strong{font-size:15px;color:#28313c;overflow-wrap:anywhere}
     .fineprint{font-size:12px;line-height:1.5;color:#6b5960}
     .form{display:grid;gap:12px;text-align:left}
     label{font-size:13px;font-weight:700;color:#28496a}
@@ -32,14 +42,26 @@
   <h1>Félicitations 🎉🎉🎉</h1>
   <div class="name">ARWOKPE MUNGUNENO JUNIOR</div>
   <div class="actions">
-    <button type="button" id="open-document">Voir l’attestation</button>
+    <button type="button" id="open-document">Voir les informations</button>
     <button type="button" class="secondary" id="open-claim">Réclamation</button>
   </div>
 </main></body>
-<dialog id="document-dialog" aria-label="Consultation du spécimen">
-  <h2>Consultation du document — Spécimen non officiel</h2>
-  <img class="viewer" src="https://demo-arwokpe-junior-2026.solesorbet16.chatgpt.site/attestation_specimen.png" alt="Aperçu du document portant un filigrane Spécimen non officiel et un code QR masqué">
-  <p class="fineprint">Aperçu de démonstration uniquement. L’authenticité de ce document n’est pas vérifiée.</p>
+<dialog id="document-dialog" aria-label="Informations personnelles de démonstration">
+  <div class="profile">
+    <div class="profiletop">
+      <div class="avatar" aria-hidden="true"></div>
+      <h3>ARWOKPE MUNGUNENO JUNIOR | 56 %</h3>
+    </div>
+    <div class="details">
+      <div class="detail"><span>Nom complet</span><strong>ARWOKPE MUNGUNENO JUNIOR</strong></div>
+      <div class="detail"><span>Sexe</span><strong>M</strong></div>
+      <div class="detail"><span>Date de naissance</span><strong>02/02/2026</strong></div>
+      <div class="detail"><span>Lieu de naissance</span><strong>GWOKNYERI</strong></div>
+      <div class="detail"><span>Pourcentage</span><strong>56 %</strong></div>
+      <div class="detail"><span>Date de création</span><strong>11/07/2026</strong></div>
+    </div>
+  </div>
+  <p class="fineprint">Fiche personnelle de démonstration — Informations déclarées, non vérifiées officiellement.</p>
   <div class="dialogactions"><button type="button" class="secondary" id="close-document">Fermer</button></div>
 </dialog>
 <dialog id="claim-dialog" aria-label="Formulaire de contact personnel">
