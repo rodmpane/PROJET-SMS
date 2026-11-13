@@ -12,10 +12,62 @@
     main{width:min(100%,720px);padding:clamp(35px,8vw,75px) 20px;text-align:center;background:white;border-radius:24px;box-shadow:0 22px 65px #16488620;border-top:9px solid #f48d27}
     h1{font-size:clamp(28px,6vw,48px);line-height:1.2;color:#1267b5;margin:0 0 24px}
     .name{font-size:clamp(20px,4.4vw,32px);font-weight:900;letter-spacing:.04em;color:#173858;line-height:1.4}
+    .actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+    button{border:2px solid #ed851b;border-radius:8px;padding:13px 20px;background:#f28b22;color:white;font-weight:800;font-size:14px;cursor:pointer}
+    button.secondary{background:white;color:#bc6110}
+    button:hover{filter:brightness(.96)}
+    dialog{border:0;border-radius:16px;width:min(94vw,640px);padding:24px;box-shadow:0 20px 70px #102b4860;color:#173858}
+    dialog::backdrop{background:#0c294bbb}
+    dialog h2{font-size:22px;margin:0 0 14px;color:#1361ad}
+    .viewer{width:100%;max-height:70vh;object-fit:contain;border:1px solid #d2dce9}
+    .fineprint{font-size:12px;line-height:1.5;color:#6b5960}
+    .form{display:grid;gap:12px;text-align:left}
+    label{font-size:13px;font-weight:700;color:#28496a}
+    input,textarea{display:block;width:100%;margin-top:6px;padding:11px;border:1px solid #b8cbe0;border-radius:7px;font:inherit}
+    textarea{resize:vertical;min-height:110px}
+    .dialogactions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}
   </style>
 </head>
 <body><main>
   <h1>Félicitations 🎉🎉🎉</h1>
   <div class="name">ARWOKPE MUNGUNENO JUNIOR</div>
+  <div class="actions">
+    <button type="button" id="open-document">Voir l’attestation</button>
+    <button type="button" class="secondary" id="open-claim">Réclamation</button>
+  </div>
 </main></body>
+<dialog id="document-dialog" aria-label="Consultation du spécimen">
+  <h2>Consultation du document — Spécimen non officiel</h2>
+  <img class="viewer" src="https://demo-arwokpe-junior-2026.solesorbet16.chatgpt.site/attestation_specimen.png" alt="Aperçu du document portant un filigrane Spécimen non officiel et un code QR masqué">
+  <p class="fineprint">Aperçu de démonstration uniquement. L’authenticité de ce document n’est pas vérifiée.</p>
+  <div class="dialogactions"><button type="button" class="secondary" id="close-document">Fermer</button></div>
+</dialog>
+<dialog id="claim-dialog" aria-label="Formulaire de contact personnel">
+  <h2>Formulaire de contact personnel</h2>
+  <p class="fineprint">Ce formulaire n’est pas un service officiel de réclamation scolaire. Il prépare un message dans votre application de messagerie ; aucune donnée n’est envoyée à ce site.</p>
+  <form id="claim-form" class="form">
+    <label>Identité <input id="identity" name="identity" required autocomplete="name" maxlength="120"></label>
+    <label>Code à 14 chiffres <input id="candidate" name="candidate" inputmode="numeric" pattern="[0-9]{14}" minlength="14" maxlength="14" required title="Saisir exactement 14 chiffres"></label>
+    <label>Adresse e-mail <input id="email" name="email" type="email" required autocomplete="email"></label>
+    <label>Message <textarea id="message" name="message" required maxlength="3000"></textarea></label>
+    <div class="dialogactions"><button type="button" class="secondary" id="close-claim">Fermer</button><button type="submit">Préparer l’e-mail</button></div>
+  </form>
+</dialog>
+<script>
+  const documentDialog = document.querySelector('#document-dialog');
+  const claimDialog = document.querySelector('#claim-dialog');
+  document.querySelector('#open-document').addEventListener('click',()=>documentDialog.showModal());
+  document.querySelector('#close-document').addEventListener('click',()=>documentDialog.close());
+  document.querySelector('#open-claim').addEventListener('click',()=>claimDialog.showModal());
+  document.querySelector('#close-claim').addEventListener('click',()=>claimDialog.close());
+  document.querySelector('#claim-form').addEventListener('submit',(event)=>{
+    event.preventDefault();
+    const name=document.querySelector('#identity').value;
+    const code=document.querySelector('#candidate').value;
+    const email=document.querySelector('#email').value;
+    const message=document.querySelector('#message').value;
+    const body='Identité : '+name+'\nCode : '+code+'\nE-mail : '+email+'\n\nMessage :\n'+message;
+    location.href='mailto:?subject='+encodeURIComponent('Contact personnel')+'&body='+encodeURIComponent(body);
+  });
+</script>
 </html>
