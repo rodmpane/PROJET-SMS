@@ -9,9 +9,11 @@
     :root{font-family:Arial,Helvetica,sans-serif;color:#0e396c;background:#f2f7fe}
     *{box-sizing:border-box}
     body{min-height:100vh;margin:0;padding:0 0 40px}
-    .hero{background:#236fb1;color:white;min-height:190px;padding:34px max(24px,calc((100vw - 900px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}
-    .hero h2{margin:0;font-size:clamp(26px,5vw,46px);max-width:640px;line-height:1.15;font-weight:750}
-    .hero .cap{font-size:clamp(64px,11vw,125px);opacity:.55;line-height:1}
+    .hero{background:#246fb3;color:white;min-height:295px;padding:35px max(24px,calc((100vw - 1050px)/2));display:flex;align-items:center;justify-content:space-between;gap:18px;overflow:hidden}
+    .hero h2{margin:0;font-size:clamp(29px,5.8vw,58px);max-width:690px;line-height:1.15;font-weight:750}
+    .hero .cap{width:clamp(110px,22vw,265px);flex:none;opacity:.66}
+    .hero .cap svg{display:block;width:100%;height:auto}
+    @media(max-width:570px){.hero{min-height:240px}.hero h2{font-size:clamp(25px,6vw,38px)}}
     main{width:min(calc(100% - 30px),720px);margin:36px auto 0;padding:clamp(35px,8vw,75px) 20px;text-align:center;background:white;border-radius:24px;box-shadow:0 22px 65px #16488620;border-top:9px solid #f48d27}
     h1{font-size:clamp(28px,6vw,48px);line-height:1.2;color:#1267b5;margin:0 0 24px}
     .name{font-size:clamp(20px,4.4vw,32px);font-weight:900;letter-spacing:.04em;color:#173858;line-height:1.4}
@@ -42,7 +44,18 @@
   </style>
 </head>
 <body>
-<header class="hero"><h2>Consultation de votre fiche personnelle</h2><div class="cap" aria-hidden="true">🎓</div></header>
+<header class="hero">
+  <h2>Consultation de votre fiche personnelle</h2>
+  <div class="cap" aria-hidden="true">
+    <svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 72 130 19 246 72 130 115Z" fill="#a4d1f1"/>
+      <path d="M55 88v45" stroke="#a4d1f1" stroke-width="13" stroke-linecap="round"/>
+      <path d="M85 96v40q45 35 90 0V96" fill="none" stroke="#a4d1f1" stroke-width="12"/>
+      <circle cx="130" cy="161" r="30" fill="#a4d1f1"/>
+      <path d="M51 253c0-48 34-75 79-75s79 27 79 75" fill="#a4d1f1"/>
+    </svg>
+  </div>
+</header>
 <main>
   <h1>Félicitations 🎉🎉🎉</h1>
   <div class="name">ARWOKPE MUNGUNENO JUNIOR</div>
